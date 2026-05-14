@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= novel.title %> - 目录</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <header id="site-header">
+    <div class="header-inner">
+      <span class="breadcrumb-current"><%= novel.title %></span>
+    </div>
+  </header>
+
+  <main>
+    <article class="novel-detail">
+      <header class="novel-meta">
+        <h1><%= novel.title %></h1>
+        <p class="novel-desc"><%= novel.description %></p>
+      </header>
+
+      <nav class="chapter-list" aria-label="章节目录" role="directory">
+        <h2 class="sr-only">章节目录</h2>
+        <ol>
+          <% chapters.forEach(function(ch) { %>
+            <li>
+              <a href="/novel/<%= novel.id %>/<%= ch.chapter_number %>">
+                <span class="ch-num"><%= String(ch.chapter_number).padStart(2, '0') %></span><%= ch.title %>
+              </a>
+            </li>
+          <% }) %>
+          <% if (chapters.length === 0) { %>
+            <li class="empty">暂无章节</li>
+          <% } %>
+        </ol>
+      </nav>
+    </article>
+  </main>
+
+  <footer id="site-footer">
+    <p></p>
+  </footer>
+</body>
+</html>

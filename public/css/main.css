@@ -1,0 +1,200 @@
+/* ===== 极简阅读 ===== */
+
+:root {
+  --bg: #fff;
+  --text: #111;
+  --muted: #888;
+  --accent: #b76e3c;
+  --border: #e8e4df;
+  --code-bg: #fafaf8;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-family: "Noto Serif SC", "Source Han Serif SC", Georgia, "Songti SC", serif;
+  font-size: 17px;
+  line-height: 1.7;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { opacity: 0.7; }
+
+/* ===== Site Header ===== */
+#site-header {
+  padding: 1.5rem 1.25rem 0;
+  font-size: 0.8125rem;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--muted);
+}
+.header-inner { max-width: 40em; margin: 0 auto; }
+.site-name { font-weight: 600; color: var(--text); font-size: 0.9375rem; }
+.site-name:hover { opacity: 0.6; }
+.breadcrumb { margin: 0 0.3rem; color: #ccc; }
+.breadcrumb-current { color: var(--muted); }
+
+/* ===== Site Footer ===== */
+#site-footer {
+  text-align: center;
+  padding: 4rem 1rem 2rem;
+  font-size: 0.75rem;
+  color: #ccc;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ===== Main Content ===== */
+main {
+  max-width: 40em;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+}
+
+/* ===== TOC / Novel Detail ===== */
+.novel-meta {
+  margin-bottom: 3rem;
+}
+.novel-meta h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.5rem;
+}
+.novel-meta .novel-desc {
+  font-size: 0.9375rem;
+  color: #555;
+  line-height: 1.85;
+  max-width: 32em;
+}
+
+/* Chapter list */
+.chapter-list h2 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #bbb;
+  margin-bottom: 1rem;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.chapter-list ol {
+  list-style: none;
+}
+.chapter-list li {
+  border-bottom: 1px solid var(--border);
+}
+.chapter-list li a {
+  display: flex;
+  align-items: baseline;
+  padding: 0.6rem 0;
+  font-size: 1rem;
+}
+.ch-num {
+  display: inline-block;
+  font-size: 0.6875rem;
+  color: #ccc;
+  margin-right: 1rem;
+  min-width: 1.5rem;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+/* ===== Chapter Reading Page ===== */
+.chapter-content {
+  max-width: 38em;
+  margin: 0 auto;
+}
+
+.chapter-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+.chapter-header h1 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: 0.03em;
+}
+.chapter-meta {
+  margin-top: 0.6rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* Paragraphs — the core reading experience */
+.chapter-body {
+  font-size: 1.0625rem;
+  line-height: 2;
+}
+.chapter-body p {
+  text-indent: 2em;
+  margin: 0.75em 0;
+}
+
+/* Chapter navigation — clean, minimal */
+.chapter-footer {
+  margin-top: 4rem;
+}
+.chapter-navigation {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--border);
+  font-size: 0.875rem;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+.nav-prev, .nav-next { max-width: 40%; color: var(--accent); }
+.nav-toc { color: #bbb; font-size: 0.8125rem; }
+.nav-placeholder { min-width: 2rem; }
+
+/* ===== 404 ===== */
+.error-page {
+  text-align: center;
+  padding: 6rem 1rem;
+}
+.error-page h1 {
+  font-size: 5rem;
+  font-weight: 300;
+  color: #e0dcd5;
+  line-height: 1;
+  margin-bottom: 1rem;
+}
+.error-page p {
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ===== Dark mode ===== */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a;
+    --text: #ddd;
+    --muted: #888;
+    --accent: #c9956b;
+    --border: #2a2a2a;
+  }
+  .chapter-body { color: #ccc; }
+  .chapter-header h1 { color: #eee; }
+  .novel-meta .novel-desc { color: #aaa; }
+  .ch-num { color: #555; }
+  .error-page h1 { color: #333; }
+  .nav-toc { color: #666; }
+  #site-footer { color: #555; }
+  .chapter-list h2 { color: #666; }
+  .breadcrumb { color: #555; }
+}

@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="<%= novel.title %> - <%= chapter.title %>">
+  <title><%= chapter.title %> - <%= novel.title %></title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <header id="site-header">
+    <div class="header-inner">
+      <a href="/novel/<%= novel.id %>"><%= novel.title %></a>
+      <span class="breadcrumb"> / </span>
+      <span class="breadcrumb-current"><%= chapter.title %></span>
+    </div>
+  </header>
+
+  <main>
+    <article class="chapter-content" aria-labelledby="chapter-heading">
+      <header class="chapter-header">
+        <h1 id="chapter-heading"><%= chapter.title %></h1>
+      </header>
+
+      <div class="chapter-body">
+        <% chapter.paragraphs.forEach(function(p) { %>
+          <p><%= p %></p>
+        <% }) %>
+      </div>
+
+      <footer class="chapter-footer">
+        <nav class="chapter-navigation" aria-label="章节导航">
+          <% if (prevChapter) { %>
+            <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>"
+               rel="prev" class="nav-prev">
+              ← <%= prevChapter.title %>
+            </a>
+          <% } else { %>
+            <span class="nav-placeholder"></span>
+          <% } %>
+          <a href="/novel/<%= novel.id %>" class="nav-toc">目录</a>
+          <% if (nextChapter) { %>
+            <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>"
+               rel="next" class="nav-next">
+              <%= nextChapter.title %> →
+            </a>
+          <% } else { %>
+            <span class="nav-placeholder"></span>
+          <% } %>
+        </nav>
+      </footer>
+    </article>
+  </main>
+
+  <footer id="site-footer">
+    <p></p>
+  </footer>
+</body>
+</html>
