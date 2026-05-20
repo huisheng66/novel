@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理员登录</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="admin-body">
+  <main class="admin-login-main">
+    <section class="admin-login-panel">
+      <h1>管理员登录</h1>
+      <% if (error) { %>
+        <div class="admin-alert admin-alert-error"><%= error %></div>
+      <% } %>
+      <form class="admin-form" action="/admin/login" method="post">
+        <input type="hidden" name="next" value="<%= nextPath %>">
+        <label>
+          <span>密码</span>
+          <input type="password" name="password" autocomplete="current-password" autofocus required>
+        </label>
+        <button class="button" type="submit">登录</button>
+      </form>
+      <a class="admin-login-back" href="/">返回前台</a>
+    </section>
+  </main>
+</body>
+</html>

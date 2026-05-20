@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>小说信息 - 后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+      <div>
+        <a href="/" class="site-name">阅读前台</a>
+        <span class="breadcrumb"> / </span>
+        <a href="/admin<%= currentNovel ? '?novel_id=' + currentNovel.id : '' %>">章节管理</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">小说信息</span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="admin-titlebar">
+      <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+      <div>
+        <h1>小说信息</h1>
+        <p>选择小说、维护基础资料，或新建一本小说。</p>
+      </div>
+      <% if (currentNovel) { %>
+        <a class="button button-secondary" href="/admin?novel_id=<%= currentNovel.id %>">返回章节管理</a>
+      <% } %>
+    </section>
+
+    <% if (notice) { %>
+      <div class="admin-alert admin-alert-ok"><%= notice %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="admin-alert admin-alert-error"><%= error %></div>
+    <% } %>
+
+    <div class="admin-novel-info-layout">
+      <section class="admin-block">
+        <div class="admin-section-title">
+          <h2>小说列表</h2>
+        </div>
+        <nav class="admin-novel-list">
+          <% novels.forEach(function(novel) { %>
+            <a class="<%= currentNovel && currentNovel.id === novel.id ? 'is-active' : '' %>" href="/admin/novels/info?novel_id=<%= novel.id %>">
+              <span><%= novel.title %></span>
+              <small><%= novel.chapter_count %> 章</small>
+            </a>
+          <% }) %>
+          <% if (novels.length === 0) { %>
+            <p class="admin-empty">暂无小说</p>
+          <% } %>
+        </nav>
+
+        <form class="admin-form admin-create-novel" action="/admin/novels" method="post">
+          <h3>新增小说</h3>
+          <label>
+            <span>标题</span>
+            <input type="text" name="title" required>
+          </label>
+          <label>
+            <span>作者</span>
+            <input type="text" name="author" required>
+          </label>
+          <label>
+            <span>简介</span>
+            <textarea name="description" rows="5"></textarea>
+          </label>
+          <button class="button" type="submit">创建小说</button>
+        </form>
+      </section>
+
+      <section class="admin-block">
+        <% if (currentNovel) { %>
+          <div class="admin-section-title">
+            <h2>当前小说</h2>
+            <a href="/novel/<%= currentNovel.id %>">查看前台</a>
+          </div>
+          <section class="admin-cover-panel">
+            <div class="admin-cover-preview">
+              <% if (currentNovel.cover_image) { %>
+                <img src="<%= currentNovel.cover_image %>" alt="<%= currentNovel.title %> 封面">
+              <% } else { %>
+                <span>暂无封面</span>
+              <% } %>
+            </div>
+            <div class="admin-cover-controls">
+              <form class="admin-form admin-cover-form" action="/admin/novels/<%= currentNovel.id %>/cover" method="post" enctype="multipart/form-data">
+                <label>
+                  <span>封面图片</span>
+                  <input type="file" name="cover_image" accept="image/jpeg,image/png,image/webp,image/gif" required>
+                </label>
+                <div class="admin-actions">
+                  <button class="button" type="submit"><%= currentNovel.cover_image ? '更换封面' : '上传封面' %></button>
+                  <% if (currentNovel.cover_image) { %>
+                    <a class="button button-secondary" href="<%= currentNovel.cover_image %>" target="_blank" rel="noreferrer">查看原图</a>
+                  <% } %>
+                </div>
+              </form>
+              <% if (currentNovel.cover_image) { %>
+                <form action="/admin/novels/<%= currentNovel.id %>/cover/delete" method="post">
+                  <button class="button button-danger" type="submit">删除封面</button>
+                </form>
+              <% } %>
+              <p class="admin-muted">支持 JPG、PNG、WebP、GIF，最大 5MB。</p>
+            </div>
+          </section>
+          <form class="admin-form" action="/admin/novels/<%= currentNovel.id %>" method="post">
+            <div class="admin-grid">
+              <label>
+                <span>标题</span>
+                <input type="text" name="title" value="<%= currentNovel.title %>" required>
+              </label>
+              <label>
+                <span>作者</span>
+                <input type="text" name="author" value="<%= currentNovel.author %>" required>
+              </label>
+            </div>
+            <label>
+              <span>简介</span>
+              <textarea name="description" rows="8"><%= currentNovel.description || '' %></textarea>
+            </label>
+            <div class="admin-actions">
+              <button class="button" type="submit">保存小说</button>
+              <a class="button button-secondary" href="/admin?novel_id=<%= currentNovel.id %>">管理章节</a>
+            </div>
+          </form>
+          <form class="admin-danger-form" action="/admin/novels/<%= currentNovel.id %>/delete" method="post" onsubmit="return confirm('确认删除这本小说及全部章节？');">
+            <button class="button button-danger" type="submit">删除小说</button>
+          </form>
+        <% } else { %>
+          <h2>先创建一本小说</h2>
+          <p class="admin-muted">创建小说后即可管理章节和批量导入文件。</p>
+        <% } %>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

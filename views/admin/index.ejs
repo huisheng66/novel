@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <div>
+        <a href="/" class="site-name">阅读前台</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">后台管理</span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <section class="admin-titlebar admin-titlebar-compact">
+      <div class="admin-title-actions">
+        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+        <% if (currentNovel) { %>
+          <a class="button button-secondary" href="/admin/novels/info?novel_id=<%= currentNovel.id %>">小说信息</a>
+          <a class="button button-secondary" href="/novel/<%= currentNovel.id %>">查看前台</a>
+        <% } else { %>
+          <a class="button button-secondary" href="/admin/novels/info">小说信息</a>
+        <% } %>
+      </div>
+    </section>
+
+    <% if (notice) { %>
+      <div class="admin-alert admin-alert-ok"><%= notice %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="admin-alert admin-alert-error"><%= error %></div>
+    <% } %>
+
+    <section class="admin-panel">
+      <% if (currentNovel) { %>
+          <section class="admin-block admin-novel-switcher">
+            <div class="admin-section-title">
+              <h2>当前小说</h2>
+              <a href="/admin/novels/info">新增小说</a>
+            </div>
+            <div class="admin-current-novel">
+              <div>
+                <strong><%= currentNovel.title %></strong>
+                <span><%= novelTotalChapters %> 章</span>
+              </div>
+              <a class="button button-secondary" href="/admin/novels/info?novel_id=<%= currentNovel.id %>">编辑小说信息</a>
+            </div>
+            <nav class="admin-novel-tabs" aria-label="小说切换">
+              <% novels.forEach(function(novel) { %>
+                <a class="<%= currentNovel.id === novel.id ? 'is-active' : '' %>" href="/admin?novel_id=<%= novel.id %>">
+                  <span><%= novel.title %></span>
+                  <small><%= novel.chapter_count %> 章</small>
+                </a>
+              <% }) %>
+            </nav>
+          </section>
+          <div class="admin-chapter-workspace" data-admin-chapters data-novel-id="<%= currentNovel.id %>" data-next-number="<%= nextNumber %>">
+            <section class="admin-block admin-chapter-list-block">
+              <div class="admin-section-title">
+                <h2>章节列表</h2>
+                <span><%= chapterPage.total %> 章</span>
+              </div>
+              <div class="admin-chapter-list">
+                <% chapters.forEach(function(chapter) { %>
+                  <article class="admin-chapter-row <%= selectedChapter && selectedChapter.id === chapter.id ? 'is-active' : '' %>" data-chapter-row data-chapter-id="<%= chapter.id %>">
+                    <a class="admin-chapter-link" href="/admin?novel_id=<%= currentNovel.id %>&chapter_id=<%= chapter.id %>#chapter-editor" data-chapter-id="<%= chapter.id %>">
+                      <span class="admin-chapter-number"><%= chapter.chapter_number %></span>
+                      <span class="admin-chapter-title"><%= chapter.title %></span>
+                      <span class="admin-chapter-length"><%= chapter.content_length %> 字</span>
+                    </a>
+                  </article>
+                <% }) %>
+                <% if (chapters.length === 0) { %>
+                  <p class="admin-empty">暂无章节</p>
+                <% } %>
+              </div>
+            </section>
+
+            <div class="admin-chapter-tools">
+              <section class="admin-block">
+                <div class="admin-section-title">
+                  <h2>批量上传</h2>
+                  <span>自动识别章节标题并拆分正文。</span>
+                </div>
+                <form class="admin-form admin-upload" action="/admin/chapters/upload" method="post" enctype="multipart/form-data">
+                  <input type="hidden" name="novel_id" value="<%= currentNovel.id %>">
+                  <div class="admin-upload-mode" role="radiogroup" aria-label="导入方式">
+                    <label>
+                      <input type="radio" name="upload_mode" value="append" checked>
+                      <span>追加</span>
+                    </label>
+                    <label>
+                      <input type="radio" name="upload_mode" value="replace">
+                      <span>覆盖</span>
+                    </label>
+                  </div>
+                  <div class="admin-grid">
+                    <label>
+                      <span>起始章节号</span>
+                      <input type="number" name="start_number" min="1" value="<%= nextNumber %>" required>
+                    </label>
+                    <label>
+                      <span>章节文件</span>
+                      <input type="file" name="chapter_files" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple required>
+                    </label>
+                  </div>
+                  <button class="button" type="submit">上传导入</button>
+                </form>
+                <p class="admin-upload-hint">追加会保留现有章节；覆盖会先删除当前小说章节。支持：第一章 标题、第001章 标题、第十回 标题、Chapter 1、1. 标题。</p>
+              </section>
+
+              <section class="admin-block" id="chapter-editor" data-chapter-editor>
+                <div class="admin-section-title">
+                  <h2><%= selectedChapter ? '章节管理' : '新增章节' %></h2>
+                  <% if (selectedChapter) { %>
+                    <a href="/admin?novel_id=<%= currentNovel.id %>#chapter-editor">新建章节</a>
+                  <% } else { %>
+                    <span>管理单章节的新建、修改、删除。</span>
+                  <% } %>
+                </div>
+                <form class="admin-form admin-inline-chapter-form" action="<%= selectedChapter ? '/admin/chapters/' + selectedChapter.id : '/admin/chapters' %>" method="post">
+                  <input type="hidden" name="novel_id" value="<%= currentNovel.id %>">
+                  <div class="admin-grid">
+                    <label>
+                      <span>章节编号</span>
+                      <input type="number" name="chapter_number" min="1" value="<%= selectedChapter ? selectedChapter.chapter_number : nextNumber %>" required>
+                    </label>
+                    <label>
+                      <span>章节标题</span>
+                      <input type="text" name="title" value="<%= selectedChapter ? selectedChapter.title : '' %>" required>
+                    </label>
+                  </div>
+                  <label>
+                    <span>正文内容</span>
+                    <textarea name="content" rows="18" required><%= selectedChapter ? selectedChapter.content : '' %></textarea>
+                  </label>
+                  <div class="admin-actions">
+                    <button class="button" type="submit"><%= selectedChapter ? '保存章节' : '创建章节' %></button>
+                    <% if (selectedChapter) { %>
+                      <button class="button button-danger admin-delete-selected-chapter" type="submit" form="delete-selected-chapter">删除章节</button>
+                      <a class="button button-secondary" href="/novel/<%= currentNovel.id %>/<%= selectedChapter.chapter_number %>">查看前台</a>
+                    <% } %>
+                  </div>
+                </form>
+                <% if (selectedChapter) { %>
+                  <form id="delete-selected-chapter" action="/admin/chapters/<%= selectedChapter.id %>/delete" method="post" onsubmit="return confirm('确认删除该章节？');">
+                    <input type="hidden" name="novel_id" value="<%= currentNovel.id %>">
+                  </form>
+                <% } %>
+              </section>
+            </div>
+          </div>
+      <% } else { %>
+        <section class="admin-block">
+          <h2>先创建一本小说</h2>
+          <p class="admin-muted">创建小说后即可新增章节或批量导入文件。</p>
+          <a class="button" href="/admin/novels/info">去创建小说</a>
+        </section>
+      <% } %>
+    </section>
+  </main>
+  <script src="/js/admin.js" defer></script>
+</body>
+</html>

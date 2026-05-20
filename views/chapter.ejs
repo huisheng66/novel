@@ -22,6 +22,26 @@
         <h1 id="chapter-heading"><%= chapter.title %></h1>
       </header>
 
+      <nav class="chapter-navigation chapter-navigation-top" aria-label="章节导航">
+        <% if (prevChapter) { %>
+          <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>"
+             rel="prev" class="nav-prev">
+            &larr; <%= prevChapter.title %>
+          </a>
+        <% } else { %>
+          <span class="nav-placeholder"></span>
+        <% } %>
+        <a href="/novel/<%= novel.id %>" class="nav-toc">目录</a>
+        <% if (nextChapter) { %>
+          <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>"
+             rel="next" class="nav-next">
+            <%= nextChapter.title %> &rarr;
+          </a>
+        <% } else { %>
+          <span class="nav-placeholder"></span>
+        <% } %>
+      </nav>
+
       <div class="chapter-body">
         <% chapter.paragraphs.forEach(function(p) { %>
           <p><%= p %></p>
@@ -29,11 +49,11 @@
       </div>
 
       <footer class="chapter-footer">
-        <nav class="chapter-navigation" aria-label="章节导航">
+        <nav class="chapter-navigation chapter-navigation-bottom" aria-label="章节导航">
           <% if (prevChapter) { %>
             <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>"
                rel="prev" class="nav-prev">
-              ← <%= prevChapter.title %>
+              &larr; <%= prevChapter.title %>
             </a>
           <% } else { %>
             <span class="nav-placeholder"></span>
@@ -42,7 +62,7 @@
           <% if (nextChapter) { %>
             <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>"
                rel="next" class="nav-next">
-              <%= nextChapter.title %> →
+              <%= nextChapter.title %> &rarr;
             </a>
           <% } else { %>
             <span class="nav-placeholder"></span>

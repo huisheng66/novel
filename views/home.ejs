@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>书库</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <header id="site-header">
+    <div class="header-inner">
+      <span class="site-name">书库</span>
+    </div>
+  </header>
+
+  <main>
+    <section class="library-page">
+      <header class="novel-meta">
+        <h1>书库</h1>
+      </header>
+
+      <nav class="library-list" aria-label="小说列表">
+        <% novels.forEach(function(novel) { %>
+          <a class="library-item" href="/novel/<%= novel.id %>">
+            <span class="library-item-main">
+              <% if (novel.cover_image) { %>
+                <img class="library-cover" src="<%= novel.cover_image %>" alt="<%= novel.title %> 封面" loading="lazy">
+              <% } else { %>
+                <span class="library-cover library-cover-placeholder" aria-hidden="true"></span>
+              <% } %>
+              <span class="library-item-text">
+                <strong><%= novel.title %></strong>
+                <% if (novel.description) { %>
+                  <small><%= novel.description %></small>
+                <% } %>
+              </span>
+            </span>
+            <em><%= novel.chapter_count %> 章</em>
+          </a>
+        <% }) %>
+        <% if (novels.length === 0) { %>
+          <p class="empty">暂无小说</p>
+        <% } %>
+      </nav>
+    </section>
+  </main>
+
+  <footer id="site-footer">
+    <p></p>
+  </footer>
+</body>
+</html>

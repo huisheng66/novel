@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>仪表盘 - 后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <div>
+        <a href="/" class="site-name">阅读前台</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">仪表盘</span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main admin-dashboard-main">
+    <section class="admin-titlebar">
+      <div>
+        <h1>仪表盘</h1>
+        <p>概览会话、用户、页面浏览、IP 分布和访问趋势。</p>
+      </div>
+      <div class="admin-title-actions">
+        <a class="button button-secondary" href="/admin">章节管理</a>
+        <a class="button button-secondary" href="/admin/novels/info">小说信息</a>
+        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+      </div>
+    </section>
+
+    <% if (notice) { %>
+      <div class="admin-alert admin-alert-ok"><%= notice %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="admin-alert admin-alert-error"><%= error %></div>
+    <% } %>
+
+    <section class="admin-dashboard-grid">
+      <article class="admin-stat-card"><span>页面浏览</span><strong><%= summary.page_views || 0 %></strong></article>
+      <article class="admin-stat-card"><span>会话数</span><strong><%= summary.sessions || 0 %></strong></article>
+      <article class="admin-stat-card"><span>用户数</span><strong><%= summary.users || 0 %></strong></article>
+      <article class="admin-stat-card"><span>IP 数</span><strong><%= summary.unique_ips || 0 %></strong></article>
+      <article class="admin-stat-card"><span>浏览小说</span><strong><%= summary.novels_viewed || 0 %></strong></article>
+      <article class="admin-stat-card"><span>浏览章节</span><strong><%= summary.chapters_viewed || 0 %></strong></article>
+    </section>
+
+    <section class="admin-dashboard-layout">
+      <section class="admin-block">
+        <div class="admin-section-title">
+          <h2>近 14 天游览趋势</h2>
+          <span>页面浏览 / 会话 / 用户 / IP</span>
+        </div>
+        <div class="admin-trend-chart">
+          <% const maxValue = Math.max(1, ...dailySeries.map(function(row) { return Math.max(row.page_views, row.sessions, row.users, row.unique_ips); })); %>
+          <% dailySeries.forEach(function(row) { %>
+            <div class="admin-trend-col">
+              <div class="admin-trend-bars">
+                <div class="admin-trend-bar page-views" style="height:<%= Math.max(6, row.page_views / maxValue * 100) %>%"></div>
+                <div class="admin-trend-bar sessions" style="height:<%= Math.max(6, row.sessions / maxValue * 100) %>%"></div>
+                <div class="admin-trend-bar users" style="height:<%= Math.max(6, row.users / maxValue * 100) %>%"></div>
+                <div class="admin-trend-bar ips" style="height:<%= Math.max(6, row.unique_ips / maxValue * 100) %>%"></div>
+              </div>
+              <span><%= row.day.slice(5) %></span>
+            </div>
+          <% }) %>
+        </div>
+        <div class="admin-legend">
+          <span><i class="page-views"></i>页面浏览</span>
+          <span><i class="sessions"></i>会话</span>
+          <span><i class="users"></i>用户</span>
+          <span><i class="ips"></i>IP</span>
+        </div>
+      </section>
+
+      <section class="admin-dashboard-side">
+        <section class="admin-block">
+          <div class="admin-section-title"><h2>热门页面</h2></div>
+          <ul class="admin-metric-list">
+            <% topPaths.forEach(function(item) { %>
+              <li><span><%= item.path %></span><strong><%= item.views %></strong></li>
+            <% }) %>
+          </ul>
+        </section>
+
+        <section class="admin-block">
+          <div class="admin-section-title"><h2>热门小说</h2></div>
+          <ul class="admin-metric-list">
+            <% topNovels.forEach(function(item) { %>
+              <li><span><%= item.title %></span><strong><%= item.views %></strong></li>
+            <% }) %>
+          </ul>
+        </section>
+
+        <section class="admin-block">
+          <div class="admin-section-title"><h2>热门 IP</h2></div>
+          <ul class="admin-metric-list">
+            <% topIps.forEach(function(item) { %>
+              <li><span><%= item.ip %></span><strong><%= item.views %></strong></li>
+            <% }) %>
+          </ul>
+        </section>
+      </section>
+    </section>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>用户访问统计</h2>
+        <span>按用户和 IP 汇总，最多显示 50 条</span>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table admin-user-stats-table">
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th>IP</th>
+              <th>浏览次数</th>
+              <th>会话数</th>
+              <th>路径数</th>
+              <th>小说</th>
+              <th>章节</th>
+              <th>首次访问</th>
+              <th>最近访问</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% userIpStats.forEach(function(item) { %>
+              <tr>
+                <td class="admin-mono-cell" title="<%= item.visitor_uid %>"><%= item.visitor_uid %></td>
+                <td class="admin-mono-cell"><%= item.visitor_ip %></td>
+                <td><strong><%= item.page_views %></strong></td>
+                <td><%= item.sessions %></td>
+                <td><%= item.paths %></td>
+                <td><%= item.novels %></td>
+                <td><%= item.chapters %></td>
+                <td><%= item.first_seen %></td>
+                <td><%= item.last_seen %></td>
+              </tr>
+            <% }) %>
+            <% if (userIpStats.length === 0) { %>
+              <tr>
+                <td colspan="9" class="admin-empty">暂无访问记录</td>
+              </tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>最近访问</h2>
+        <span>最新 20 条页面浏览</span>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>路径</th>
+              <th>小说</th>
+              <th>章节</th>
+              <th>IP</th>
+              <th>会话</th>
+              <th>用户</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% latestViews.forEach(function(item) { %>
+              <tr>
+                <td><%= item.created_at %></td>
+                <td><%= item.path %></td>
+                <td><%= item.novel_title || '-' %></td>
+                <td><%= item.chapter_title ? ('#' + item.chapter_number + ' ' + item.chapter_title) : '-' %></td>
+                <td><%= item.visitor_ip %></td>
+                <td><%= item.session_id %></td>
+                <td><%= item.visitor_uid %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

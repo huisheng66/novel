@@ -15,9 +15,16 @@
 
   <main>
     <article class="novel-detail">
-      <header class="novel-meta">
-        <h1><%= novel.title %></h1>
-        <p class="novel-desc"><%= novel.description %></p>
+      <header class="novel-meta novel-meta-with-cover">
+        <% if (novel.cover_image) { %>
+          <img class="novel-cover" src="<%= novel.cover_image %>" alt="<%= novel.title %> 封面">
+        <% } else { %>
+          <span class="novel-cover novel-cover-placeholder" aria-hidden="true"></span>
+        <% } %>
+        <span>
+          <h1><%= novel.title %></h1>
+          <p class="novel-desc"><%= novel.description %></p>
+        </span>
       </header>
 
       <nav class="chapter-list" aria-label="章节目录" role="directory">

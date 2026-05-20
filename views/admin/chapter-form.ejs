@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= mode === 'edit' ? '编辑章节' : '新增章节' %> - 后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <div>
+        <a href="/admin<%= currentNovel ? '?novel_id=' + currentNovel.id : '' %>" class="site-name">后台管理</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current"><%= mode === 'edit' ? '编辑章节' : '新增章节' %></span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main admin-editor-main">
+    <section class="admin-titlebar">
+      <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+      <div>
+        <h1><%= mode === 'edit' ? '编辑章节' : '新增章节' %></h1>
+        <p>维护章节编号、标题和正文内容。</p>
+      </div>
+      <a class="button button-secondary" href="/admin<%= currentNovel ? '?novel_id=' + currentNovel.id : '' %>">返回列表</a>
+    </section>
+
+    <% if (error) { %>
+      <div class="admin-alert admin-alert-error"><%= error %></div>
+    <% } %>
+
+    <section class="admin-block">
+      <form class="admin-form admin-chapter-form" action="<%= mode === 'edit' ? '/admin/chapters/' + chapter.id : '/admin/chapters' %>" method="post">
+        <div class="admin-grid">
+          <label>
+            <span>所属小说</span>
+            <select name="novel_id" required>
+              <% novels.forEach(function(novel) { %>
+                <option value="<%= novel.id %>" <%= Number(chapter.novel_id) === Number(novel.id) ? 'selected' : '' %>><%= novel.title %></option>
+              <% }) %>
+            </select>
+          </label>
+          <label>
+            <span>章节编号</span>
+            <input type="number" name="chapter_number" min="1" value="<%= chapter.chapter_number %>" required>
+          </label>
+        </div>
+        <label>
+          <span>章节标题</span>
+          <input type="text" name="title" value="<%= chapter.title %>" required>
+        </label>
+        <label>
+          <span>正文内容</span>
+          <textarea class="admin-content-textarea" name="content" rows="22" required><%= chapter.content %></textarea>
+        </label>
+        <div class="admin-actions">
+          <button class="button" type="submit"><%= mode === 'edit' ? '保存章节' : '创建章节' %></button>
+          <% if (mode === 'edit') { %>
+            <a class="button button-secondary" href="/novel/<%= chapter.novel_id %>/<%= chapter.chapter_number %>">查看前台</a>
+          <% } %>
+        </div>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

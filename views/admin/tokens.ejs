@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token 用户 - 后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <div>
+        <a href="/" class="site-name">阅读前台</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">Token 用户</span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main admin-token-main">
+    <section class="admin-titlebar">
+      <div>
+        <h1>Token 用户</h1>
+        <p>通过 token 管理前台用户，并统计每个用户的 IP、近 5 分钟访问和总访问。</p>
+      </div>
+      <div class="admin-title-actions">
+        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+        <a class="button button-secondary" href="/admin">章节管理</a>
+        <a class="button button-secondary" href="/admin/novels/info">小说信息</a>
+      </div>
+    </section>
+
+    <% if (notice) { %>
+      <div class="admin-alert admin-alert-ok"><%= notice %></div>
+    <% } %>
+    <% if (error) { %>
+      <div class="admin-alert admin-alert-error"><%= error %></div>
+    <% } %>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>新建 Token</h2>
+        <span>Token 留空时自动生成</span>
+      </div>
+      <form class="admin-form admin-token-create" action="/admin/tokens" method="post">
+        <div class="admin-grid">
+          <label>
+            <span>用户名称</span>
+            <input type="text" name="name" placeholder="例如：渠道 A / 测试用户 01" required>
+          </label>
+          <label>
+            <span>Token</span>
+            <input type="text" name="token" placeholder="留空自动生成">
+          </label>
+        </div>
+        <button class="button" type="submit">创建 Token</button>
+      </form>
+    </section>
+
+    <section class="admin-token-grid">
+      <% tokenUsers.forEach(function(user) { %>
+        <article class="admin-token-card <%= user.is_active ? '' : 'is-disabled' %> <%= user.is_risk_paused ? 'is-risk-paused' : '' %>">
+          <div class="admin-token-card-head">
+            <div>
+              <h2><%= user.name %></h2>
+              <p class="admin-token-value"><%= user.token %></p>
+            </div>
+            <span class="admin-token-status <%= user.is_risk_paused ? 'is-risk' : (user.is_active ? 'is-active' : '') %>"><%= user.is_risk_paused ? '风控暂停' : (user.is_active ? '启用' : '停用') %></span>
+          </div>
+
+          <% if (user.is_risk_paused) { %>
+            <div class="admin-token-risk-alert">
+              <strong>已触发风控</strong>
+              <span><%= user.risk_reason || '5 分钟内访问章节过多' %>，暂停到 <%= user.risk_paused_until %></span>
+            </div>
+          <% } %>
+
+          <div class="admin-token-link">
+            <span>访问链接</span>
+            <code>/?token=<%= user.token %></code>
+          </div>
+
+          <form class="admin-token-novel-form" action="/admin/tokens/<%= user.id %>/novel" method="post">
+            <label>
+              <span>限制访问小说</span>
+              <select name="allowed_novel_id">
+                <option value="" <%= user.allowed_novel_id ? '' : 'selected' %>>全部小说</option>
+                <% novels.forEach(function(novel) { %>
+                  <option value="<%= novel.id %>" <%= Number(user.allowed_novel_id) === Number(novel.id) ? 'selected' : '' %>><%= novel.title %></option>
+                <% }) %>
+              </select>
+            </label>
+            <button class="button button-secondary" type="submit">保存限制</button>
+          </form>
+
+          <div class="admin-token-stats">
+            <div><span>5 分钟</span><strong><%= user.views_5m || 0 %></strong></div>
+            <div><span>总访问</span><strong><%= user.total_views || 0 %></strong></div>
+            <div><span>IP</span><strong><%= user.ip_count || 0 %></strong></div>
+            <div><span>会话</span><strong><%= user.session_count || 0 %></strong></div>
+            <div><span>5 分钟章节</span><strong><%= user.chapter_views_5m || 0 %>/75</strong></div>
+          </div>
+
+          <div class="admin-token-ip-list">
+            <h3>IP 访问</h3>
+            <% if (user.ips.length > 0) { %>
+              <% user.ips.forEach(function(ip) { %>
+                <div class="admin-token-ip-row">
+                  <span><%= ip.visitor_ip %></span>
+                  <small>5 分钟 <%= ip.views_5m || 0 %> / 总计 <%= ip.total_views || 0 %></small>
+                </div>
+              <% }) %>
+            <% } else { %>
+              <p class="admin-muted">暂无访问</p>
+            <% } %>
+          </div>
+
+          <div class="admin-token-visit-list">
+            <h3>最近访问</h3>
+            <% if (user.recentViews.length > 0) { %>
+              <div class="admin-token-visit-table">
+                <% user.recentViews.forEach(function(view) { %>
+                  <div class="admin-token-visit-row">
+                    <time><%= view.visited_at %></time>
+                    <span class="admin-token-visit-ip"><%= view.visitor_ip %></span>
+                    <span class="admin-token-visit-novel"><%= view.novel_title || '书库首页' %></span>
+                    <span class="admin-token-visit-chapter">
+                      <% if (view.chapter_number) { %>
+                        第 <%= view.chapter_number %> 章 <%= view.chapter_title || '' %>
+                      <% } else { %>
+                        目录页
+                      <% } %>
+                    </span>
+                  </div>
+                <% }) %>
+              </div>
+            <% } else { %>
+              <p class="admin-muted">暂无访问记录</p>
+            <% } %>
+          </div>
+
+          <div class="admin-token-card-foot">
+            <span>最近访问：<%= user.last_seen || '-' %></span>
+            <div class="admin-actions">
+              <form action="/admin/tokens/<%= user.id %>/toggle" method="post">
+                <input type="hidden" name="is_active" value="<%= user.is_active ? 0 : 1 %>">
+                <button class="button button-secondary" type="submit"><%= user.is_active ? '停用' : '启用' %></button>
+              </form>
+              <form action="/admin/tokens/<%= user.id %>/delete" method="post" onsubmit="return confirm('确认删除该 token？历史访问会保留为未绑定。');">
+                <button class="button button-danger" type="submit">删除</button>
+              </form>
+            </div>
+          </div>
+        </article>
+      <% }) %>
+      <% if (tokenUsers.length === 0) { %>
+        <section class="admin-block">
+          <p class="admin-empty">暂无 Token 用户</p>
+        </section>
+      <% } %>
+    </section>
+  </main>
+</body>
+</html>
