@@ -12,11 +12,15 @@ const pageViewQueue = require('../lib/pageViewQueue');
 const router = express.Router();
 const COVER_UPLOAD_DIR = path.join(__dirname, '..', 'public', 'uploads', 'covers');
 const COVER_PUBLIC_PREFIX = '/uploads/covers/';
+const CHAPTER_UPLOAD_MAX_MB = 30;
+const COVER_UPLOAD_MAX_MB = 30;
+const CHAPTER_UPLOAD_MAX_BYTES = CHAPTER_UPLOAD_MAX_MB * 1024 * 1024;
+const COVER_UPLOAD_MAX_BYTES = COVER_UPLOAD_MAX_MB * 1024 * 1024;
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 15 * 1024 * 1024,
+    fileSize: CHAPTER_UPLOAD_MAX_BYTES,
     files: 50
   }
 });
@@ -24,7 +28,7 @@ const upload = multer({
 const coverUpload = multer({
   storage: multer.memoryStorage(),
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: COVER_UPLOAD_MAX_BYTES,
     files: 1
   },
   fileFilter(req, file, cb) {
@@ -45,7 +49,7 @@ function handleCoverUpload(req, res, next) {
 
     const novelId = toPositiveInt(req.params.id);
     const message = err.code === 'LIMIT_FILE_SIZE'
-      ? '封面图片不能超过 5MB'
+      ? `封面图片不能超过 ${COVER_UPLOAD_MAX_MB}MB`
       : err.message || '封面上传失败';
     const target = novelId ? `/admin/novels/info?novel_id=${novelId}` : '/admin/novels/info';
     res.redirect(`${target}&error=${encodeURIComponent(message)}`);
@@ -128,6 +132,13 @@ function sanitizeNextPath(nextPath) {
     return '/admin';
   }
   return value;
+}
+
+function getBaseUrl(req) {
+  const proto = String(req.headers['x-forwarded-proto'] || req.protocol || 'http')
+    .split(',')[0]
+    .trim() || 'http';
+  return `${proto}://${req.get('host')}`;
 }
 
 function requireAdmin(req, res, next) {
@@ -733,6 +744,7 @@ router.get('/tokens', async (req, res, next) => {
     const tokenUsers = await getTokenUsers();
 
     res.render('admin/tokens', {
+      baseUrl: getBaseUrl(req),
       currentNovel,
       novels,
       tokenUsers,

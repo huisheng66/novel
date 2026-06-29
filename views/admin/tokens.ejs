@@ -80,7 +80,12 @@
 
           <div class="admin-token-link">
             <span>访问链接</span>
-            <code>/?token=<%= user.token %></code>
+            <code><%= baseUrl %>/?token=<%= user.token %></code>
+          </div>
+
+          <div class="admin-token-link">
+            <span>书源导入</span>
+            <code><%= baseUrl %>/source/import/<%= user.token %>.json</code>
           </div>
 
           <form class="admin-token-novel-form" action="/admin/tokens/<%= user.id %>/novel" method="post">

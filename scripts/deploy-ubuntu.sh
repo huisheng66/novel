@@ -232,7 +232,7 @@ server {
     $listen_line
     server_name $server_name;
 
-    client_max_body_size 800m;
+    client_max_body_size 30m;
 
     gzip on;
     gzip_comp_level 5;

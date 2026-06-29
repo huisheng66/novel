@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node --env-file=.env server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "smoke:source": "node scripts/smoke-source.js",
+    "test": "node --test --test-concurrency=1 tests/*.test.js"
   },
   "keywords": [],
   "author": "",

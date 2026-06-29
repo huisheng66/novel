@@ -1,6 +1,7 @@
 node_modules/
 .env
 npm-debug.log*
-server-smoke*.log
+server*.log
+tmp-*.json
 deploy-ubuntu.log
 public/uploads/
