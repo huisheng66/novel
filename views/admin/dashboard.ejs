@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>仪表盘 - 后台管理</title>
   <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body class="admin-body">
   <header id="site-header" class="admin-header">
@@ -116,7 +117,7 @@
         <table class="admin-table admin-user-stats-table">
           <thead>
             <tr>
-              <th>用户</th>
+              <th>用户名</th>
               <th>IP</th>
               <th>浏览次数</th>
               <th>会话数</th>
@@ -130,7 +131,7 @@
           <tbody>
             <% userIpStats.forEach(function(item) { %>
               <tr>
-                <td class="admin-mono-cell" title="<%= item.visitor_uid %>"><%= item.visitor_uid %></td>
+                <td class="admin-mono-cell" title="<%= item.user_name ? item.user_name : item.visitor_uid %>"><%= item.user_name ? item.user_name : item.visitor_uid.slice(0, 8) + '…' %></td>
                 <td class="admin-mono-cell"><%= item.visitor_ip %></td>
                 <td><strong><%= item.page_views %></strong></td>
                 <td><%= item.sessions %></td>

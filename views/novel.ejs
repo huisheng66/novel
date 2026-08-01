@@ -4,12 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= novel.title %> - 目录</title>
+  <meta name="description" content="<%= novel.description || novel.title %>">
+  <link rel="canonical" href="<%= baseUrl %>/novel/<%= novel.id %>">
+  <meta property="og:title" content="<%= novel.title %>">
+  <meta property="og:description" content="<%= novel.description || novel.title %>">
+  <meta property="og:type" content="book">
+  <meta property="og:url" content="<%= baseUrl %>/novel/<%= novel.id %>">
+  <% if (novel.cover_image) { %>
+    <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
+  <% } %>
   <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
   <header id="site-header">
     <div class="header-inner">
       <span class="breadcrumb-current"><%= novel.title %></span>
+      <a class="header-shelf" href="/" title="返回书架">书架</a>
     </div>
   </header>
 
@@ -29,8 +39,14 @@
 
       <nav class="chapter-list" aria-label="章节目录" role="directory">
         <h2 class="sr-only">章节目录</h2>
-        <ol>
-          <% chapters.forEach(function(ch) { %>
+        <%
+          const limit = initialChapterLimit || chapters.length;
+          const visibleChapters = chapters.slice(0, limit);
+          const hiddenChapters = chapters.slice(limit);
+          const hasMore = hiddenChapters.length > 0;
+        %>
+        <ol id="chapter-list-ol">
+          <% visibleChapters.forEach(function(ch) { %>
             <li>
               <a href="/novel/<%= novel.id %>/<%= ch.chapter_number %>">
                 <span class="ch-num"><%= String(ch.chapter_number).padStart(2, '0') %></span><%= ch.title %>
@@ -41,6 +57,39 @@
             <li class="empty">暂无章节</li>
           <% } %>
         </ol>
+        <% if (hasMore) { %>
+          <button class="chapter-load-more" id="chapter-load-more" type="button" data-remaining="<%= hiddenChapters.length %>">
+            展开剩余 <%= hiddenChapters.length %> 章
+          </button>
+          <script type="application/json" id="chapter-hidden-data"><%- JSON.stringify(hiddenChapters.map(function(ch) { return { n: ch.chapter_number, t: ch.title }; })) %></script>
+          <script>
+            (function() {
+              var btn = document.getElementById('chapter-load-more');
+              var ol = document.getElementById('chapter-list-ol');
+              var dataEl = document.getElementById('chapter-hidden-data');
+              var novelId = '<%= novel.id %>';
+              btn.addEventListener('click', function() {
+                var items = JSON.parse(dataEl.textContent);
+                var frag = document.createDocumentFragment();
+                items.forEach(function(ch) {
+                  var li = document.createElement('li');
+                  var a = document.createElement('a');
+                  a.href = '/novel/' + novelId + '/' + ch.n;
+                  var num = document.createElement('span');
+                  num.className = 'ch-num';
+                  num.textContent = String(ch.n).padStart(2, '0');
+                  a.appendChild(num);
+                  a.appendChild(document.createTextNode(ch.t));
+                  li.appendChild(a);
+                  frag.appendChild(li);
+                });
+                ol.appendChild(frag);
+                btn.remove();
+                dataEl.remove();
+              });
+            })();
+          </script>
+        <% } %>
       </nav>
     </article>
   </main>

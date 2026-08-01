@@ -5,14 +5,33 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="<%= novel.title %> - <%= chapter.title %>">
   <title><%= chapter.title %> - <%= novel.title %></title>
+  <link rel="canonical" href="<%= baseUrl %>/novel/<%= novel.id %>/<%= chapter.chapter_number %>">
+  <meta property="og:title" content="<%= chapter.title %> - <%= novel.title %>">
+  <meta property="og:description" content="<%= novel.description || novel.title %>">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="<%= baseUrl %>/novel/<%= novel.id %>/<%= chapter.chapter_number %>">
+  <% if (novel.cover_image) { %>
+    <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
+  <% } %>
   <link rel="stylesheet" href="/css/main.css">
+  <script>
+    (function() {
+      var theme = localStorage.getItem('reader-theme');
+      if (theme) document.documentElement.setAttribute('data-reader-theme', theme);
+      var fontSize = localStorage.getItem('reader-font-size');
+      if (fontSize) document.documentElement.style.setProperty('--reader-font-size', fontSize);
+    })();
+  </script>
 </head>
 <body>
   <header id="site-header">
     <div class="header-inner">
-      <a href="/novel/<%= novel.id %>"><%= novel.title %></a>
-      <span class="breadcrumb"> / </span>
-      <span class="breadcrumb-current"><%= chapter.title %></span>
+      <span class="header-crumbs">
+        <a href="/novel/<%= novel.id %>"><%= novel.title %></a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current"><%= chapter.title %></span>
+      </span>
+      <a class="header-shelf" href="/" title="返回书架">书架</a>
     </div>
   </header>
 
@@ -21,6 +40,13 @@
       <header class="chapter-header">
         <h1 id="chapter-heading"><%= chapter.title %></h1>
       </header>
+
+      <div class="reader-controls">
+        <button class="reader-btn" id="theme-toggle" type="button">深色</button>
+        <span class="reader-font-label">字号</span>
+        <button class="reader-btn" id="font-decrease" type="button">A-</button>
+        <button class="reader-btn" id="font-increase" type="button">A+</button>
+      </div>
 
       <nav class="chapter-navigation chapter-navigation-top" aria-label="章节导航">
         <% if (prevChapter) { %>
@@ -75,5 +101,82 @@
   <footer id="site-footer">
     <p></p>
   </footer>
+
+  <script>
+    (function() {
+      var html = document.documentElement;
+      var themeBtn = document.getElementById('theme-toggle');
+      var fontDecBtn = document.getElementById('font-decrease');
+      var fontIncBtn = document.getElementById('font-increase');
+
+      /* ---- Theme toggle ---- */
+      function currentTheme() {
+        return html.getAttribute('data-reader-theme') ||
+          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      }
+      function updateThemeLabel() {
+        themeBtn.textContent = currentTheme() === 'dark' ? '浅色' : '深色';
+      }
+      themeBtn.addEventListener('click', function() {
+        var next = currentTheme() === 'dark' ? 'light' : 'dark';
+        html.setAttribute('data-reader-theme', next);
+        localStorage.setItem('reader-theme', next);
+        updateThemeLabel();
+      });
+
+      /* ---- Font size ---- */
+      var fontSizes = ['0.95rem', '1.0625rem', '1.2rem', '1.35rem'];
+      var defaultIdx = 1;
+      function getFontIndex() {
+        var idx = fontSizes.indexOf(localStorage.getItem('reader-font-size'));
+        return idx >= 0 ? idx : defaultIdx;
+      }
+      function applyFont(idx) {
+        html.style.setProperty('--reader-font-size', fontSizes[idx]);
+        localStorage.setItem('reader-font-size', fontSizes[idx]);
+      }
+      fontDecBtn.addEventListener('click', function() {
+        var idx = getFontIndex();
+        if (idx > 0) applyFont(idx - 1);
+      });
+      fontIncBtn.addEventListener('click', function() {
+        var idx = getFontIndex();
+        if (idx < fontSizes.length - 1) applyFont(idx + 1);
+      });
+
+      updateThemeLabel();
+
+      /* ---- Reading progress ---- */
+      var progressKey = 'reading-progress:<%= novel.id %>:<%= chapter.chapter_number %>';
+      var saved = parseFloat(localStorage.getItem(progressKey));
+      if (saved > 0) {
+        requestAnimationFrame(function() {
+          var max = document.documentElement.scrollHeight - window.innerHeight;
+          if (max > 0) window.scrollTo(0, max * saved);
+        });
+      }
+      var saveTimer = null;
+      window.addEventListener('scroll', function() {
+        if (saveTimer) clearTimeout(saveTimer);
+        saveTimer = setTimeout(function() {
+          var max = document.documentElement.scrollHeight - window.innerHeight;
+          if (max > 0) localStorage.setItem(progressKey, String(window.scrollY / max));
+        }, 300);
+      }, { passive: true });
+
+      /* ---- Keyboard navigation ---- */
+      document.addEventListener('keydown', function(e) {
+        var tag = e.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+        if (e.key === 'ArrowLeft') {
+          var prev = document.querySelector('a[rel="prev"]');
+          if (prev) window.location.href = prev.href;
+        } else if (e.key === 'ArrowRight') {
+          var next = document.querySelector('a[rel="next"]');
+          if (next) window.location.href = next.href;
+        }
+      });
+    })();
+  </script>
 </body>
 </html>

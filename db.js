@@ -1,9 +1,6 @@
 const mysql = require('mysql2/promise');
-
-function parsePositiveInt(value, fallback) {
-  const parsed = Number.parseInt(value, 10);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
-}
+const { parsePositiveInt } = require('./lib/util');
+const logger = require('./lib/logger');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -102,6 +99,96 @@ async function ensureChapterSchema(conn) {
   }
 }
 
+const SCHEMA_VERSION = 1;
+
+async function ensureSchemaVersionTable(conn) {
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS schema_version (
+      version INT NOT NULL PRIMARY KEY,
+      applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
+async function getAppliedSchemaVersion(conn) {
+  const [rows] = await conn.execute(
+    'SELECT version FROM schema_version ORDER BY version DESC LIMIT 1'
+  );
+  return rows.length > 0 ? rows[0].version : 0;
+}
+
+async function recordSchemaVersion(conn, version) {
+  await conn.execute(
+    'INSERT IGNORE INTO schema_version (version) VALUES (?)',
+    [version]
+  );
+}
+
+// 历史迁移:仅对未记录 schema_version 的旧库执行一次,完成后写入版本号
+async function runSchemaMigrations(conn) {
+  if (!await columnExists(conn, 'novels', 'cover_image')) {
+    await conn.execute('ALTER TABLE novels ADD COLUMN cover_image VARCHAR(255) DEFAULT NULL AFTER description');
+  }
+
+  await ensureChapterSchema(conn);
+
+  if (!await columnExists(conn, 'access_tokens', 'allowed_novel_id')) {
+    await conn.execute('ALTER TABLE access_tokens ADD COLUMN allowed_novel_id INT DEFAULT NULL AFTER token');
+  }
+  if (!await columnExists(conn, 'access_tokens', 'risk_paused_until')) {
+    await conn.execute('ALTER TABLE access_tokens ADD COLUMN risk_paused_until DATETIME DEFAULT NULL AFTER is_active');
+  }
+  if (!await columnExists(conn, 'access_tokens', 'risk_reason')) {
+    await conn.execute('ALTER TABLE access_tokens ADD COLUMN risk_reason VARCHAR(255) DEFAULT NULL AFTER risk_paused_until');
+  }
+  if (!await indexExists(conn, 'access_tokens', 'idx_access_tokens_novel')) {
+    try {
+      await conn.execute('CREATE INDEX idx_access_tokens_novel ON access_tokens (allowed_novel_id)');
+    } catch (err) {
+      if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
+    }
+  }
+  if (!await constraintExists(conn, 'access_tokens', 'fk_access_tokens_novel')) {
+    try {
+      await conn.execute(
+        'ALTER TABLE access_tokens ADD CONSTRAINT fk_access_tokens_novel FOREIGN KEY (allowed_novel_id) REFERENCES novels(id) ON DELETE SET NULL'
+      );
+    } catch (err) {
+      if (err && err.code !== 'ER_FK_DUP_NAME' && err.code !== 'ER_CANNOT_ADD_FOREIGN') throw err;
+    }
+  }
+
+  try {
+    await conn.execute("ALTER TABLE page_views ADD COLUMN visitor_uid VARCHAR(64) NOT NULL DEFAULT '' AFTER id");
+  } catch (err) {
+    if (err && err.code !== 'ER_DUP_FIELDNAME') throw err;
+  }
+  if (!await columnExists(conn, 'page_views', 'access_token_id')) {
+    await conn.execute('ALTER TABLE page_views ADD COLUMN access_token_id INT DEFAULT NULL AFTER visitor_uid');
+  }
+  try {
+    await conn.execute('CREATE INDEX idx_visitor_uid ON page_views (visitor_uid)');
+  } catch (err) {
+    if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
+  }
+  if (!await indexExists(conn, 'page_views', 'idx_access_token_id')) {
+    try {
+      await conn.execute('CREATE INDEX idx_access_token_id ON page_views (access_token_id)');
+    } catch (err) {
+      if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
+    }
+  }
+  if (!await indexExists(conn, 'page_views', 'idx_token_chapter_recent')) {
+    try {
+      await conn.execute(
+        'CREATE INDEX idx_token_chapter_recent ON page_views (access_token_id, created_at, novel_id, chapter_id)'
+      );
+    } catch (err) {
+      if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
+    }
+  }
+}
+
 async function initDB() {
   // Ensure database exists
   const dbName = process.env.DB_NAME || 'novel';
@@ -126,10 +213,6 @@ async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
-    if (!await columnExists(conn, 'novels', 'cover_image')) {
-      await conn.execute('ALTER TABLE novels ADD COLUMN cover_image VARCHAR(255) DEFAULT NULL AFTER description');
-    }
-
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS chapters (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -142,8 +225,6 @@ async function initDB() {
         UNIQUE KEY uk_novel_chapter (novel_id, chapter_number)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
-
-    await ensureChapterSchema(conn);
 
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS access_tokens (
@@ -162,40 +243,10 @@ async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
-    if (!await columnExists(conn, 'access_tokens', 'allowed_novel_id')) {
-      await conn.execute('ALTER TABLE access_tokens ADD COLUMN allowed_novel_id INT DEFAULT NULL AFTER token');
-    }
-
-    if (!await columnExists(conn, 'access_tokens', 'risk_paused_until')) {
-      await conn.execute('ALTER TABLE access_tokens ADD COLUMN risk_paused_until DATETIME DEFAULT NULL AFTER is_active');
-    }
-
-    if (!await columnExists(conn, 'access_tokens', 'risk_reason')) {
-      await conn.execute('ALTER TABLE access_tokens ADD COLUMN risk_reason VARCHAR(255) DEFAULT NULL AFTER risk_paused_until');
-    }
-
-    if (!await indexExists(conn, 'access_tokens', 'idx_access_tokens_novel')) {
-      try {
-        await conn.execute('CREATE INDEX idx_access_tokens_novel ON access_tokens (allowed_novel_id)');
-      } catch (err) {
-        if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
-      }
-    }
-
-    if (!await constraintExists(conn, 'access_tokens', 'fk_access_tokens_novel')) {
-      try {
-        await conn.execute(
-          'ALTER TABLE access_tokens ADD CONSTRAINT fk_access_tokens_novel FOREIGN KEY (allowed_novel_id) REFERENCES novels(id) ON DELETE SET NULL'
-        );
-      } catch (err) {
-        if (err && err.code !== 'ER_FK_DUP_NAME' && err.code !== 'ER_CANNOT_ADD_FOREIGN') throw err;
-      }
-    }
-
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS page_views (
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
-        visitor_uid VARCHAR(64) NOT NULL,
+        visitor_uid VARCHAR(64) NOT NULL DEFAULT '',
         access_token_id INT DEFAULT NULL,
         session_id VARCHAR(64) NOT NULL,
         visitor_ip VARCHAR(64) NOT NULL,
@@ -212,43 +263,10 @@ async function initDB() {
         INDEX idx_visitor_ip (visitor_ip),
         INDEX idx_path (path),
         INDEX idx_novel_id (novel_id),
-        INDEX idx_chapter_id (chapter_id)
+        INDEX idx_chapter_id (chapter_id),
+        INDEX idx_token_chapter_recent (access_token_id, created_at, novel_id, chapter_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
-
-    try {
-      await conn.execute("ALTER TABLE page_views ADD COLUMN visitor_uid VARCHAR(64) NOT NULL DEFAULT '' AFTER id");
-    } catch (err) {
-      if (err && err.code !== 'ER_DUP_FIELDNAME') throw err;
-    }
-
-    if (!await columnExists(conn, 'page_views', 'access_token_id')) {
-      await conn.execute('ALTER TABLE page_views ADD COLUMN access_token_id INT DEFAULT NULL AFTER visitor_uid');
-    }
-
-    try {
-      await conn.execute('CREATE INDEX idx_visitor_uid ON page_views (visitor_uid)');
-    } catch (err) {
-      if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
-    }
-
-    if (!await indexExists(conn, 'page_views', 'idx_access_token_id')) {
-      try {
-        await conn.execute('CREATE INDEX idx_access_token_id ON page_views (access_token_id)');
-      } catch (err) {
-        if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
-      }
-    }
-
-    if (!await indexExists(conn, 'page_views', 'idx_token_chapter_recent')) {
-      try {
-        await conn.execute(
-          'CREATE INDEX idx_token_chapter_recent ON page_views (access_token_id, created_at, novel_id, chapter_id)'
-        );
-      } catch (err) {
-        if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
-      }
-    }
 
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS analytics_daily (
@@ -262,6 +280,24 @@ async function initDB() {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS admin_sessions (
+        sid VARCHAR(64) NOT NULL PRIMARY KEY,
+        expires_at DATETIME NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_expires_at (expires_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    // schema 版本管理:已应用最新版本时跳过历史迁移检查,缩短启动时间
+    await ensureSchemaVersionTable(conn);
+    const appliedVersion = await getAppliedSchemaVersion(conn);
+    if (appliedVersion < SCHEMA_VERSION) {
+      await runSchemaMigrations(conn);
+      await recordSchemaVersion(conn, SCHEMA_VERSION);
+      logger.info('数据库迁移完成', { schema_version: SCHEMA_VERSION });
+    }
 
     // Seed data: only if novels table is empty
     const [rows] = await conn.execute('SELECT COUNT(*) AS cnt FROM novels');
@@ -283,7 +319,7 @@ async function initDB() {
           [1, ch.cn, ch.title, ch.content]
         );
       }
-      console.log('种子数据已插入：1 本小说 + 3 章');
+      logger.info('种子数据已插入', { novels: 1, chapters: 3 });
     }
   } finally {
     conn.release();

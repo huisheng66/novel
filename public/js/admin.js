@@ -170,8 +170,43 @@
     window.history.pushState({ chapterId: chapterId || null }, '', url);
   };
 
+  const removeChapterError = () => {
+    const existing = editor.querySelector('[data-chapter-load-error]');
+    if (existing) existing.remove();
+  };
+
+  const showChapterError = (chapterId, message) => {
+    removeChapterError();
+    const bar = document.createElement('div');
+    bar.className = 'admin-alert admin-alert-error';
+    bar.dataset.chapterLoadError = 'true';
+    bar.style.marginBottom = '0.8rem';
+
+    const text = document.createElement('span');
+    text.textContent = `章节加载失败：${message}。`;
+    bar.appendChild(text);
+
+    const retry = document.createElement('button');
+    retry.type = 'button';
+    retry.textContent = '重试';
+    retry.style.marginLeft = '0.6rem';
+    retry.addEventListener('click', () => {
+      removeChapterError();
+      loadChapter(chapterId, { skipHistory: true });
+    });
+    bar.appendChild(retry);
+
+    const titleEl = editor.querySelector('.admin-section-title');
+    if (titleEl && titleEl.nextElementSibling) {
+      editor.insertBefore(bar, titleEl.nextElementSibling);
+    } else {
+      editor.prepend(bar);
+    }
+  };
+
   const loadChapter = async (chapterId, options = {}) => {
     setEditorBusy(true);
+    removeChapterError();
     try {
       const response = await fetch(`/admin/api/chapters/${encodeURIComponent(chapterId)}?novel_id=${encodeURIComponent(novelId)}`, {
         headers: { Accept: 'application/json' }
@@ -182,7 +217,7 @@
       setEditMode(data.chapter);
       if (!options.skipHistory) updateLocation(data.chapter.id);
     } catch (err) {
-      window.location.href = `/admin?novel_id=${encodeURIComponent(novelId)}&chapter_id=${encodeURIComponent(chapterId)}#chapter-editor`;
+      showChapterError(chapterId, err.message || '网络错误');
     } finally {
       setEditorBusy(false);
     }

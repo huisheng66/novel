@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>后台管理</title>
   <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/admin.css">
 </head>
 <body class="admin-body">
   <header id="site-header" class="admin-header">
@@ -70,7 +71,24 @@
                 <h2>章节列表</h2>
                 <span><%= chapterPage.total %> 章</span>
               </div>
-              <div class="admin-chapter-list">
+              <% if (chapterPage.totalPages > 1) { %>
+                <div class="admin-pagination admin-pagination-top">
+                  <span>第 <%= chapterPage.page %> / <%= chapterPage.totalPages %> 页</span>
+                  <div class="admin-pagination-actions">
+                    <% if (chapterPage.page > 1) { %>
+                      <a class="button button-secondary" href="/admin?novel_id=<%= currentNovel.id %>&chapter_page=<%= chapterPage.page - 1 %><%= '&page_size=' + chapterPage.pageSize %>#chapter-list">上一页</a>
+                    <% } else { %>
+                      <span class="button button-secondary is-disabled">上一页</span>
+                    <% } %>
+                    <% if (chapterPage.page < chapterPage.totalPages) { %>
+                      <a class="button button-secondary" href="/admin?novel_id=<%= currentNovel.id %>&chapter_page=<%= chapterPage.page + 1 %><%= '&page_size=' + chapterPage.pageSize %>#chapter-list">下一页</a>
+                    <% } else { %>
+                      <span class="button button-secondary is-disabled">下一页</span>
+                    <% } %>
+                  </div>
+                </div>
+              <% } %>
+              <div class="admin-chapter-list" id="chapter-list">
                 <% chapters.forEach(function(chapter) { %>
                   <article class="admin-chapter-row <%= selectedChapter && selectedChapter.id === chapter.id ? 'is-active' : '' %>" data-chapter-row data-chapter-id="<%= chapter.id %>">
                     <a class="admin-chapter-link" href="/admin?novel_id=<%= currentNovel.id %>&chapter_id=<%= chapter.id %>#chapter-editor" data-chapter-id="<%= chapter.id %>">
@@ -84,6 +102,23 @@
                   <p class="admin-empty">暂无章节</p>
                 <% } %>
               </div>
+              <% if (chapterPage.totalPages > 1) { %>
+                <div class="admin-pagination admin-pagination-bottom">
+                  <span>第 <%= chapterPage.page %> / <%= chapterPage.totalPages %> 页</span>
+                  <div class="admin-pagination-actions">
+                    <% if (chapterPage.page > 1) { %>
+                      <a class="button button-secondary" href="/admin?novel_id=<%= currentNovel.id %>&chapter_page=<%= chapterPage.page - 1 %><%= '&page_size=' + chapterPage.pageSize %>#chapter-list">上一页</a>
+                    <% } else { %>
+                      <span class="button button-secondary is-disabled">上一页</span>
+                    <% } %>
+                    <% if (chapterPage.page < chapterPage.totalPages) { %>
+                      <a class="button button-secondary" href="/admin?novel_id=<%= currentNovel.id %>&chapter_page=<%= chapterPage.page + 1 %><%= '&page_size=' + chapterPage.pageSize %>#chapter-list">下一页</a>
+                    <% } else { %>
+                      <span class="button button-secondary is-disabled">下一页</span>
+                    <% } %>
+                  </div>
+                </div>
+              <% } %>
             </section>
 
             <div class="admin-chapter-tools">
