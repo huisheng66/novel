@@ -91,7 +91,7 @@ router.get('/novel/:id', async (req, res, next) => {
       [req.params.id]
     );
 
-    renderAndCache(req, res, next, cacheKey, 'novel', { novel, chapters, baseUrl: getBaseUrl(req), initialChapterLimit: 200 });
+    renderAndCache(req, res, next, cacheKey, 'novel', { novel, chapters, baseUrl: getBaseUrl(req) });
   } catch (err) {
     next(err);
   }

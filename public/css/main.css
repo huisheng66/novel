@@ -340,6 +340,133 @@ main {
 .reader-btn:hover { color: var(--accent); border-color: var(--accent); }
 .reader-font-label { font-size: 0.75rem; color: var(--muted); }
 
+/* ===== Chapter Search Island (TOC page) ===== */
+.chapter-search-island {
+  position: fixed;
+  top: 0.6rem;
+  left: 50%;
+  transform: translate(-50%, -150%);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+  color: #222;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  opacity: 0;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease, background 0.2s ease;
+  pointer-events: none;
+  max-width: calc(100vw - 2rem);
+}
+.chapter-search-island.is-visible {
+  transform: translate(-50%, 0);
+  opacity: 1;
+  pointer-events: auto;
+}
+.chapter-search-island.is-focused {
+  background: rgba(255, 255, 255, 0.78);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+.chapter-search-form {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.chapter-search-input {
+  -webkit-appearance: none;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  width: 13rem;
+  max-width: 60vw;
+  outline: none;
+}
+.chapter-search-input::placeholder { color: rgba(34, 34, 34, 0.5); }
+/* 隐藏浏览器原生 search 清除按钮,避免与自定义按钮重叠 */
+.chapter-search-input::-webkit-search-decoration,
+.chapter-search-input::-webkit-search-cancel-button { -webkit-appearance: none; appearance: none; }
+
+.chapter-search-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.12);
+  color: #222;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+.chapter-search-clear:hover { background: rgba(0, 0, 0, 0.22); }
+
+.chapter-search-count {
+  font-size: 0.72rem;
+  color: rgba(34, 34, 34, 0.6);
+  white-space: nowrap;
+  padding-right: 0.35rem;
+}
+.chapter-search-count:empty { padding-right: 0; }
+
+.chapter-search-empty {
+  text-align: center;
+  padding: 1.5rem 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ===== Back to Top (TOC page) ===== */
+.back-to-top {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 90;
+  width: 2.6rem;
+  height: 2.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+  color: #222;
+  cursor: pointer;
+  padding: 0;
+  opacity: 0;
+  transform: translateY(1rem);
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease, background 0.2s ease;
+  pointer-events: none;
+}
+.back-to-top.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+.back-to-top:hover {
+  background: rgba(255, 255, 255, 0.78);
+}
+.back-to-top:active {
+  transform: translateY(0) scale(0.94);
+}
+
 /* Manual theme override — beats @media prefers-color-scheme via specificity */
 html[data-reader-theme="dark"] {
   --bg: #1a1a1a;

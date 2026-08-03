@@ -17,12 +17,6 @@ async function renderDashboard(req, res, options = {}) {
   let selectedChapter = null;
   let nextNumber = 1;
   let novelTotalChapters = 0;
-  let chapterPage = {
-    total: 0,
-    page: 1,
-    pageSize: 80,
-    totalPages: 0
-  };
   if (currentNovel) {
     const currentNovelSummary = novels.find(novel => novel.id === currentNovel.id);
     novelTotalChapters = Number(currentNovelSummary && currentNovelSummary.chapter_count || 0);
@@ -41,32 +35,13 @@ async function renderDashboard(req, res, options = {}) {
       selectedChapter = chapter || null;
     }
 
-    const total = novelTotalChapters;
-    const pageSize = Math.min(toPositiveInt(req.query.page_size) || 80, 200);
-    const totalPages = Math.max(Math.ceil(total / pageSize), 1);
-
-    let page = toPositiveInt(req.query.chapter_page);
-    if (!page && selectedChapter) {
-      const [[posRow]] = await pool.execute(
-        'SELECT COUNT(*) AS pos FROM chapters WHERE novel_id = ? AND chapter_number <= ?',
-        [currentNovel.id, selectedChapter.chapter_number]
-      );
-      page = Math.max(Math.ceil(Number(posRow && posRow.pos || 1) / pageSize), 1);
-    }
-    if (!page) page = 1;
-    if (page > totalPages) page = totalPages;
-    const offset = (page - 1) * pageSize;
-
     [chapters] = await pool.execute(
       `SELECT id, chapter_number, title, CHAR_LENGTH(content) AS content_length, created_at
        FROM chapters
        WHERE novel_id = ?
-       ORDER BY chapter_number ASC
-       LIMIT ${pageSize} OFFSET ${offset}`,
+       ORDER BY chapter_number ASC`,
       [currentNovel.id]
     );
-
-    chapterPage = { total, page, pageSize, totalPages };
   }
 
   res.render('admin/index', {

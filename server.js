@@ -67,8 +67,8 @@ app.use((err, req, res, next) => {
 });
 
 initDB().then(() => {
-  const server = app.listen(PORT, () => {
-    logger.info('Server started', { port: PORT });
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    logger.info('Server started', { port: PORT, host: '0.0.0.0' });
   });
   analytics.start();
 

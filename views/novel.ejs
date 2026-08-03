@@ -23,6 +23,21 @@
     </div>
   </header>
 
+  <div class="chapter-search-island" id="chapter-search-island" aria-hidden="true">
+    <form class="chapter-search-form" id="chapter-search-form" role="search" autocomplete="off">
+      <input
+        type="search"
+        id="chapter-search-input"
+        class="chapter-search-input"
+        placeholder="搜索章节号或标题"
+        aria-label="搜索章节"
+        inputmode="search"
+      >
+      <button type="reset" class="chapter-search-clear" id="chapter-search-clear" aria-label="清除">×</button>
+    </form>
+    <span class="chapter-search-count" id="chapter-search-count" aria-live="polite"></span>
+  </div>
+
   <main>
     <article class="novel-detail">
       <header class="novel-meta novel-meta-with-cover">
@@ -39,15 +54,9 @@
 
       <nav class="chapter-list" aria-label="章节目录" role="directory">
         <h2 class="sr-only">章节目录</h2>
-        <%
-          const limit = initialChapterLimit || chapters.length;
-          const visibleChapters = chapters.slice(0, limit);
-          const hiddenChapters = chapters.slice(limit);
-          const hasMore = hiddenChapters.length > 0;
-        %>
         <ol id="chapter-list-ol">
-          <% visibleChapters.forEach(function(ch) { %>
-            <li>
+          <% chapters.forEach(function(ch) { %>
+            <li data-chapter-number="<%= ch.chapter_number %>" data-chapter-title="<%= ch.title %>">
               <a href="/novel/<%= novel.id %>/<%= ch.chapter_number %>">
                 <span class="ch-num"><%= String(ch.chapter_number).padStart(2, '0') %></span><%= ch.title %>
               </a>
@@ -57,39 +66,7 @@
             <li class="empty">暂无章节</li>
           <% } %>
         </ol>
-        <% if (hasMore) { %>
-          <button class="chapter-load-more" id="chapter-load-more" type="button" data-remaining="<%= hiddenChapters.length %>">
-            展开剩余 <%= hiddenChapters.length %> 章
-          </button>
-          <script type="application/json" id="chapter-hidden-data"><%- JSON.stringify(hiddenChapters.map(function(ch) { return { n: ch.chapter_number, t: ch.title }; })) %></script>
-          <script>
-            (function() {
-              var btn = document.getElementById('chapter-load-more');
-              var ol = document.getElementById('chapter-list-ol');
-              var dataEl = document.getElementById('chapter-hidden-data');
-              var novelId = '<%= novel.id %>';
-              btn.addEventListener('click', function() {
-                var items = JSON.parse(dataEl.textContent);
-                var frag = document.createDocumentFragment();
-                items.forEach(function(ch) {
-                  var li = document.createElement('li');
-                  var a = document.createElement('a');
-                  a.href = '/novel/' + novelId + '/' + ch.n;
-                  var num = document.createElement('span');
-                  num.className = 'ch-num';
-                  num.textContent = String(ch.n).padStart(2, '0');
-                  a.appendChild(num);
-                  a.appendChild(document.createTextNode(ch.t));
-                  li.appendChild(a);
-                  frag.appendChild(li);
-                });
-                ol.appendChild(frag);
-                btn.remove();
-                dataEl.remove();
-              });
-            })();
-          </script>
-        <% } %>
+        <p class="chapter-search-empty" id="chapter-search-empty" hidden>没有匹配的章节</p>
       </nav>
     </article>
   </main>
@@ -97,5 +74,141 @@
   <footer id="site-footer">
     <p></p>
   </footer>
+
+  <button class="back-to-top" id="back-to-top" type="button" aria-label="返回顶部" hidden>
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+      <path d="M12 5l-7 7h4v7h6v-7h4z" fill="currentColor"/>
+    </svg>
+  </button>
+
+  <script>
+    (function() {
+      var island = document.getElementById('chapter-search-island');
+      var input = document.getElementById('chapter-search-input');
+      var clearBtn = document.getElementById('chapter-search-clear');
+      var form = document.getElementById('chapter-search-form');
+      var countEl = document.getElementById('chapter-search-count');
+      var emptyEl = document.getElementById('chapter-search-empty');
+      var ol = document.getElementById('chapter-list-ol');
+      if (!island || !input || !ol) return;
+
+      var items = Array.prototype.slice.call(ol.querySelectorAll('li[data-chapter-number]'));
+      var total = items.length;
+      var lastY = window.scrollY;
+      var shown = false;
+      var HIDE_THRESHOLD = 240;      // 向下滑动超过此距离才显示
+      var SHOW_DELTA = 4;            // 连续向下滑动的最小位移
+      var hideTimer = null;
+
+      function show() {
+        if (shown) return;
+        shown = true;
+        island.classList.add('is-visible');
+        island.setAttribute('aria-hidden', 'false');
+      }
+      function hide() {
+        if (!shown) return;
+        shown = false;
+        island.classList.remove('is-visible');
+        island.classList.remove('is-focused');
+        island.setAttribute('aria-hidden', 'true');
+      }
+
+      function onScroll() {
+        var y = window.scrollY;
+        var delta = y - lastY;
+        lastY = y;
+        // 向下滑动且超过阈值 → 显示
+        if (delta > SHOW_DELTA && y > HIDE_THRESHOLD) {
+          show();
+          if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+          // 3 秒无操作自动收回(未聚焦时)
+          hideTimer = setTimeout(function() {
+            if (document.activeElement !== input) hide();
+          }, 3000);
+        } else if (delta < -SHOW_DELTA && document.activeElement !== input) {
+          // 明显向上滑动 → 隐藏
+          hide();
+          if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        }
+      }
+
+      window.addEventListener('scroll', onScroll, { passive: true });
+
+      input.addEventListener('focus', function() {
+        island.classList.add('is-focused');
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      });
+      input.addEventListener('blur', function() {
+        island.classList.remove('is-focused');
+        if (!input.value) hide();
+      });
+
+      function filter() {
+        var q = String(input.value || '').trim().toLowerCase();
+        if (!q) {
+          items.forEach(function(li) { li.style.display = ''; });
+          countEl.textContent = '';
+          emptyEl.hidden = true;
+          return;
+        }
+        var matched = 0;
+        items.forEach(function(li) {
+          var num = String(li.getAttribute('data-chapter-number') || '');
+          var title = String(li.getAttribute('data-chapter-title') || '').toLowerCase();
+          var hit = num.indexOf(q) !== -1 || title.indexOf(q) !== -1;
+          li.style.display = hit ? '' : 'none';
+          if (hit) matched++;
+        });
+        countEl.textContent = matched + ' / ' + total + ' 章';
+        emptyEl.hidden = matched !== 0;
+      }
+
+      input.addEventListener('input', filter);
+      form.addEventListener('reset', function() {
+        setTimeout(function() {
+          filter();
+          input.focus();
+        }, 0);
+      });
+      clearBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        input.value = '';
+        filter();
+        input.focus();
+      });
+
+      // 返回顶部按钮:滚动超过一屏后显示,点击平滑回到顶部
+      var backBtn = document.getElementById('back-to-top');
+      if (backBtn) {
+        var BACK_THRESHOLD = 400;
+        var backShown = false;
+        function showBack() {
+          if (backShown) return;
+          backShown = true;
+          backBtn.hidden = false;
+          // 触发重排以启用过渡
+          backBtn.offsetWidth;
+          backBtn.classList.add('is-visible');
+        }
+        function hideBack() {
+          if (!backShown) return;
+          backShown = false;
+          backBtn.classList.remove('is-visible');
+          // 等过渡结束再隐藏,避免突兀
+          setTimeout(function() { if (!backShown) backBtn.hidden = true; }, 280);
+        }
+        backBtn.addEventListener('click', function() {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        // 复用上面 onScroll 的滚动事件:在已有监听里追加判定
+        // 为避免拆改原函数,这里独立监听(被动)
+        window.addEventListener('scroll', function() {
+          if (window.scrollY > BACK_THRESHOLD) showBack();
+          else hideBack();
+        }, { passive: true });
+      }
+    })();
+  </script>
 </body>
 </html>
