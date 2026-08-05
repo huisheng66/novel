@@ -31,7 +31,13 @@
         <span class="breadcrumb"> / </span>
         <span class="breadcrumb-current"><%= chapter.title %></span>
       </span>
-      <a class="header-shelf" href="/" title="返回书架">书架</a>
+      <div class="header-actions">
+        <a class="header-shelf" href="/" title="返回书架">书架</a>
+        <div class="personal-center" id="personal-center">
+          <button class="pc-toggle" type="button" id="pc-toggle" aria-expanded="false">个人中心</button>
+          <div class="pc-panel" id="pc-panel" hidden></div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -178,5 +184,6 @@
       });
     })();
   </script>
+  <script src="/js/personal-center.js" defer></script>
 </body>
 </html>

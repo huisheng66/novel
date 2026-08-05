@@ -290,6 +290,21 @@ async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS novel_comments (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        novel_id INT NOT NULL,
+        visitor_uid VARCHAR(64) NOT NULL DEFAULT '',
+        access_token_id INT DEFAULT NULL,
+        name VARCHAR(30) NOT NULL DEFAULT '匿名读者',
+        content VARCHAR(500) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_novel_comments_recent (novel_id, created_at),
+        INDEX idx_novel_comments_uid (visitor_uid, created_at),
+        CONSTRAINT fk_novel_comments_novel FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
     // schema 版本管理:已应用最新版本时跳过历史迁移检查,缩短启动时间
     await ensureSchemaVersionTable(conn);
     const appliedVersion = await getAppliedSchemaVersion(conn);

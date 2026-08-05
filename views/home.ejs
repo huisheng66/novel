@@ -13,19 +13,36 @@
   <link rel="stylesheet" href="/css/main.css">
 </head>
 <body>
+  <% if (typeof requireLogin === 'undefined' || !requireLogin) { %>
   <header id="site-header">
     <div class="header-inner">
       <span class="site-name">书库</span>
+      <div class="personal-center" id="personal-center">
+        <button class="pc-toggle" type="button" id="pc-toggle" aria-expanded="false">个人中心</button>
+        <div class="pc-panel" id="pc-panel" hidden></div>
+      </div>
     </div>
   </header>
+  <% } %>
 
   <main>
     <section class="library-page">
+      <% if (typeof requireLogin === 'undefined' || !requireLogin) { %>
       <header class="novel-meta">
         <h1>书库</h1>
       </header>
+      <% } %>
 
       <nav class="library-list" aria-label="小说列表">
+        <% if (typeof requireLogin !== 'undefined' && requireLogin) { %>
+          <form id="home-login-form" class="home-login-form">
+            <div class="home-login-title">登录</div>
+            <input type="text" id="home-login-name" class="pc-input" placeholder="用户名" autocomplete="username" />
+            <input type="password" id="home-login-token" class="pc-input" placeholder="访问令牌" autocomplete="current-password" />
+            <button type="submit" class="pc-login-btn">登录</button>
+            <div class="pc-error home-login-error"></div>
+          </form>
+        <% } else { %>
         <% novels.forEach(function(novel) { %>
           <a class="library-item" href="/novel/<%= novel.id %>">
             <span class="library-item-main">
@@ -47,6 +64,7 @@
         <% if (novels.length === 0) { %>
           <p class="empty">暂无小说</p>
         <% } %>
+        <% } %>
       </nav>
     </section>
   </main>
@@ -54,5 +72,6 @@
   <footer id="site-footer">
     <p></p>
   </footer>
+  <script src="/js/personal-center.js" defer></script>
 </body>
 </html>

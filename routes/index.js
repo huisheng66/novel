@@ -48,6 +48,11 @@ function splitParagraphs(chapter) {
 
 router.get('/', async (req, res, next) => {
   try {
+    // 未登录:显示登录提示页(不暴露小说列表)
+    if (!req.accessTokenId) {
+      return res.render('home', { novels: [], baseUrl: getBaseUrl(req), requireLogin: true });
+    }
+
     const allowedNovelId = req.accessToken && req.accessToken.allowedNovelId;
     const cacheKey = `html:home:${allowedNovelId || 'all'}`;
     if (sendCachedHtml(res, cacheKey)) return;
@@ -92,6 +97,23 @@ router.get('/novel/:id', async (req, res, next) => {
     );
 
     renderAndCache(req, res, next, cacheKey, 'novel', { novel, chapters, baseUrl: getBaseUrl(req) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/novel/:id/comments', async (req, res, next) => {
+  try {
+    const cacheKey = `html:novel-comments:${req.params.id}`;
+    if (sendCachedHtml(res, cacheKey)) return;
+
+    const [[novel]] = await pool.execute(
+      'SELECT id, title FROM novels WHERE id = ?',
+      [req.params.id]
+    );
+    if (!novel) return res.status(404).render('404', { url: req.originalUrl });
+
+    renderAndCache(req, res, next, cacheKey, 'novel-comments', { novel, baseUrl: getBaseUrl(req) });
   } catch (err) {
     next(err);
   }

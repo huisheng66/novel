@@ -19,7 +19,13 @@
   <header id="site-header">
     <div class="header-inner">
       <span class="breadcrumb-current"><%= novel.title %></span>
-      <a class="header-shelf" href="/" title="返回书架">书架</a>
+      <div class="header-actions">
+        <a class="header-shelf" href="/" title="返回书架">书架</a>
+        <div class="personal-center" id="personal-center">
+          <button class="pc-toggle" type="button" id="pc-toggle" aria-expanded="false">个人中心</button>
+          <div class="pc-panel" id="pc-panel" hidden></div>
+        </div>
+      </div>
     </div>
   </header>
 
@@ -47,7 +53,7 @@
           <span class="novel-cover novel-cover-placeholder" aria-hidden="true"></span>
         <% } %>
         <span>
-          <h1><%= novel.title %></h1>
+          <h1><span class="novel-title-text"><%= novel.title %></span><a class="feedback-link" href="/novel/<%= novel.id %>/comments">反馈与评论</a></h1>
           <p class="novel-desc"><%= novel.description %></p>
         </span>
       </header>
@@ -210,5 +216,6 @@
       }
     })();
   </script>
+  <script src="/js/personal-center.js" defer></script>
 </body>
 </html>

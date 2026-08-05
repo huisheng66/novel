@@ -86,6 +86,12 @@ function parseNovelAndChapter(pathname) {
     };
   }
 
+  // 评论页: /novel/:id/comments
+  const commentsMatch = pathname.match(/^\/novel\/(\d+)\/comments$/);
+  if (commentsMatch) {
+    return { novelId: Number(commentsMatch[1]), chapterId: null };
+  }
+
   const sourceBookMatch = pathname.match(/^\/source\/(?:html\/)?(?:book|toc)\/(\d+)$/);
   if (sourceBookMatch) {
     return {
@@ -383,6 +389,25 @@ async function authenticateToken(req, res, next) {
       return next();
     }
 
+    // 首页允许未登录访问,但已登录时需设置 accessTokenId 以渲染书库
+    if (pathname === '/') {
+      const token = getAccessTokenValue(req);
+      const accessTokenId = await getActiveAccessTokenId(req, res);
+      if (accessTokenId) {
+        req.accessTokenId = accessTokenId;
+      }
+      logger.debug('Home auth', {
+        hasToken: Boolean(token),
+        tokenSource: token
+          ? (req.query.token ? 'query'
+            : String(req.headers.cookie || '').includes('access_token=') ? 'cookie' : 'other')
+          : 'none',
+        accessTokenId: accessTokenId || null,
+        result: accessTokenId ? 'authenticated' : 'anonymous'
+      });
+      return next();
+    }
+
     const accessTokenId = await requireAccessToken(req, res);
     if (!accessTokenId) return;
     req.accessTokenId = accessTokenId;
@@ -451,5 +476,6 @@ module.exports = {
   recordPageView,
   getRiskStats,
   getAccessTokenValue,
+  getVisitorUid,
   parseNovelAndChapter
 };

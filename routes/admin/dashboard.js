@@ -48,7 +48,6 @@ async function renderDashboard(req, res, options = {}) {
     novels,
     currentNovel,
     chapters,
-    chapterPage,
     selectedChapter,
     nextNumber,
     novelTotalChapters,

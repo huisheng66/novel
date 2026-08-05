@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= novel.title %> - 评论区</title>
+  <link rel="stylesheet" href="/css/main.css">
+</head>
+<body>
+  <header id="site-header">
+    <div class="header-inner">
+      <span class="header-crumbs">
+        <a href="/novel/<%= novel.id %>"><%= novel.title %></a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">评论区</span>
+      </span>
+      <div class="header-actions">
+        <a class="header-shelf" href="/novel/<%= novel.id %>" title="返回详情">返回</a>
+        <div class="personal-center" id="personal-center">
+          <button class="pc-toggle" type="button" id="pc-toggle" aria-expanded="false">个人中心</button>
+          <div class="pc-panel" id="pc-panel" hidden></div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <article class="novel-detail">
+      <section class="novel-comments" id="novel-comments" data-novel-id="<%= novel.id %>">
+        <h2 class="comments-title">评论区(<span id="comment-count">0</span>)</h2>
+        <form class="comment-form" id="comment-form">
+          <input type="text" id="comment-name" class="comment-input" placeholder="昵称(可选,默认匿名读者)" maxlength="30">
+          <textarea id="comment-content" class="comment-textarea" placeholder="写下你的评论..." maxlength="500" rows="4" required></textarea>
+          <button type="submit" class="comment-submit" id="comment-submit">发表</button>
+        </form>
+        <div class="comment-list" id="comment-list"></div>
+      </section>
+    </article>
+  </main>
+
+  <footer id="site-footer">
+    <p></p>
+  </footer>
+
+  <script src="/js/personal-center.js" defer></script>
+  <script src="/js/comments.js" defer></script>
+</body>
+</html>

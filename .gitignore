@@ -5,3 +5,4 @@ server*.log
 tmp-*.json
 deploy-ubuntu.log
 public/uploads/
+certs/
