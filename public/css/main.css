@@ -117,12 +117,18 @@ main {
 }
 .chapter-list li {
   border-bottom: 1px solid var(--border);
+  /* 长目录（2000+ 章）避免一次布局全部 DOM，减轻手机端卡死 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.6rem;
 }
 .chapter-list li a {
   display: flex;
   align-items: baseline;
   padding: 0.6rem 0;
   font-size: 1rem;
+  /* 长标题（带卷名前缀）不把点击区域撑破 */
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .ch-num {
   display: inline-block;
@@ -213,7 +219,14 @@ main {
 }
 
 /* ===== Chapter Reading Page ===== */
-.chapter-content {
+.content_read,
+.chapter-content,
+.box_con {
+  max-width: 38em;
+  margin: 0 auto;
+}
+/* 导航与字号控件：不参与浏览器阅读模式抽取的正文区 */
+.reader-chrome {
   max-width: 38em;
   margin: 0 auto;
 }
@@ -262,10 +275,12 @@ main {
   border-bottom: 1px solid var(--border);
 }
 .chapter-navigation-bottom {
+  max-width: 38em;
+  margin: 3rem auto 0;
   padding-top: 1.25rem;
   border-top: 1px solid var(--border);
 }
-.nav-prev, .nav-next { max-width: 40%; color: var(--accent); }
+.nav-prev, .nav-next { max-width: 40%; color: var(--accent); white-space: nowrap; }
 .nav-next { text-align: right; }
 .nav-toc { color: #bbb; font-size: 0.8125rem; }
 .nav-placeholder { min-width: 2rem; }

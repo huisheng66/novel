@@ -159,8 +159,7 @@
   const updateLocation = (chapterId) => {
     const url = new URL(window.location.href);
     url.searchParams.set('novel_id', novelId);
-    url.searchParams.delete('chapter_page');
-    url.searchParams.delete('page_size');
+    // 保留 chapter_page / page_size，刷新后仍停留在当前分页
     if (chapterId) {
       url.searchParams.set('chapter_id', chapterId);
     } else {

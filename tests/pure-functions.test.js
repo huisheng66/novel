@@ -5,8 +5,11 @@ const util = require('../lib/util');
 const {
   normalizeText,
   formatChapterContent,
+  buildReaderChapterTitle,
+  mergeParagraphsForReader,
   cleanChapterTitle,
   isChapterTitleLine,
+  dedupeVolumePrefixes,
   splitTextIntoChapters,
   decodeTxt
 } = require('../lib/chapterText');
@@ -110,6 +113,11 @@ test('isChapterTitleLine recognizes Chinese chapter titles', () => {
   assert.ok(isChapterTitleLine('第1章 测试'));
   assert.ok(isChapterTitleLine('第123回 红尘'));
   assert.ok(isChapterTitleLine('第二节 暗流'));
+  assert.ok(isChapterTitleLine('第一节：纵身亡魔心仍不悔'));
+  assert.ok(isChapterTitleLine('第一百零一节：心老人便老'));
+  assert.ok(isChapterTitleLine('第三百一十七节：三尊图谋幽魂'));
+  assert.ok(isChapterTitleLine('第001章 肉身十重'));
+  assert.ok(isChapterTitleLine('第342章危危可急'));
 });
 
 test('isChapterTitleLine recognizes Arabic chapter titles', () => {
@@ -123,10 +131,34 @@ test('isChapterTitleLine recognizes prefixed chapter titles', () => {
   assert.ok(isChapterTitleLine('12. 序章'));
 });
 
+test('isChapterTitleLine recognizes preface titles', () => {
+  assert.ok(isChapterTitleLine('序'));
+  assert.ok(isChapterTitleLine('序：不是走向成功，就是走向毁灭'));
+  assert.ok(isChapterTitleLine('前序'));
+  assert.ok(isChapterTitleLine('序章 开篇'));
+  assert.ok(isChapterTitleLine('楔子'));
+  assert.ok(isChapterTitleLine('引子：夜雨'));
+  assert.ok(isChapterTitleLine('前言'));
+  assert.ok(isChapterTitleLine('后记'));
+  assert.ok(isChapterTitleLine('番外：旧事'));
+});
+
 test('isChapterTitleLine rejects non-title lines', () => {
   assert.ok(!isChapterTitleLine('这是一段普通的正文文字'));
   assert.ok(!isChapterTitleLine(''));
   assert.ok(!isChapterTitleLine('   '));
+});
+
+test('isChapterTitleLine rejects body text that looks like 第N幕 prose', () => {
+  assert.ok(!isChapterTitleLine('第一幕徐徐在他眼前消散，很快，他进入了第二幕。'));
+  assert.ok(!isChapterTitleLine('第二幕梦境比第一幕要冗长一些'));
+  assert.ok(!isChapterTitleLine('第二幕。'));
+  assert.ok(!isChapterTitleLine('第五幕梦境。'));
+});
+
+test('isChapterTitleLine does not treat volume titles as chapters', () => {
+  assert.ok(!isChapterTitleLine('第一卷：魔性不改'));
+  assert.ok(!isChapterTitleLine('第六卷：魔尊永生'));
 });
 
 test('isChapterTitleLine rejects overly long titles', () => {
@@ -152,6 +184,29 @@ test('formatChapterContent collapses excessive whitespace', () => {
   const result = formatChapterContent('字\t\t字  \n\n\n  字');
   assert.ok(!result.includes('\t'));
   assert.ok(!result.includes('  '));
+});
+
+test('buildReaderChapterTitle prefixes 第N章 for 节/序 titles', () => {
+  assert.equal(
+    buildReaderChapterTitle(2, '第一卷：魔性不改 第一节：纵身亡魔心仍不悔'),
+    '第2章 第一节：纵身亡魔心仍不悔'
+  );
+  assert.equal(
+    buildReaderChapterTitle(1, '序：不是走向成功，就是走向毁灭'),
+    '第1章 序：不是走向成功，就是走向毁灭'
+  );
+  assert.equal(buildReaderChapterTitle(3, '第003章 肉身十重'), '第003章 肉身十重');
+  assert.equal(
+    buildReaderChapterTitle(1, '第一卷 第1章 若有轮回'),
+    '第1章 若有轮回'
+  );
+});
+
+test('mergeParagraphsForReader merges short dialogue lines', () => {
+  const merged = mergeParagraphsForReader(['短句一。', '短句二。', '短句三。', '这是一段比较长的正文内容用于结束缓冲。'], 20);
+  assert.ok(merged.length < 4);
+  assert.ok(merged[0].includes('短句一'));
+  assert.ok(merged[0].length >= 20 || merged.length === 1);
 });
 
 /* ===== splitTextIntoChapters ===== */
@@ -182,6 +237,56 @@ test('splitTextIntoChapters returns single chapter with fallback title when no h
 test('splitTextIntoChapters returns empty array for empty input', () => {
   assert.deepEqual(splitTextIntoChapters('', '标题'), []);
   assert.deepEqual(splitTextIntoChapters(null, '标题'), []);
+});
+
+test('splitTextIntoChapters captures preface and volume only on first chapter of each volume', () => {
+  const text = [
+    '书名：测试',
+    '序：作者的话',
+    '这是序言正文。',
+    '第一卷：魔性不改',
+    '第一节：开端',
+    '卷一第一节内容。',
+    '第二节：延续',
+    '卷一第二节内容。',
+    '第二卷：魔子出山',
+    '第一节：再起',
+    '卷二第一节内容。',
+    '第一幕徐徐在他眼前消散，这是正文不是标题。'
+  ].join('\n');
+
+  const chapters = splitTextIntoChapters(text, '默认标题');
+  assert.equal(chapters.length, 4);
+  assert.equal(chapters[0].title, '序：作者的话');
+  assert.ok(chapters[0].content.includes('这是序言正文'));
+  // 卷名只出现在该卷第一章
+  assert.equal(chapters[1].title, '第一卷：魔性不改 第一节：开端');
+  assert.ok(chapters[1].content.includes('卷一第一节内容'));
+  assert.ok(!chapters[1].content.includes('第二卷'));
+  assert.equal(chapters[2].title, '第二节：延续');
+  assert.ok(chapters[2].content.includes('卷一第二节内容'));
+  assert.equal(chapters[3].title, '第二卷：魔子出山 第一节：再起');
+  assert.ok(chapters[3].content.includes('卷二第一节内容'));
+  assert.ok(chapters[3].content.includes('第一幕徐徐'));
+});
+
+test('dedupeVolumePrefixes keeps volume only on first chapter of each volume', () => {
+  const cleaned = dedupeVolumePrefixes([
+    '序：开篇',
+    '第一卷：魔性不改 第一节：开端',
+    '第一卷：魔性不改 第二节：延续',
+    '第一卷：魔性不改 第三节：收束',
+    '第二卷：魔子出山 第一节：再起',
+    '第二卷：魔子出山 第二节：深入'
+  ]);
+  assert.deepEqual(cleaned, [
+    '序：开篇',
+    '第一卷：魔性不改 第一节：开端',
+    '第二节：延续',
+    '第三节：收束',
+    '第二卷：魔子出山 第一节：再起',
+    '第二节：深入'
+  ]);
 });
 
 /* ===== decodeTxt ===== */

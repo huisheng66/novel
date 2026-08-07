@@ -43,11 +43,11 @@
 
     <section class="admin-dashboard-grid">
       <article class="admin-stat-card"><span>页面浏览</span><strong><%= summary.page_views || 0 %></strong></article>
-      <article class="admin-stat-card"><span>会话数</span><strong><%= summary.sessions || 0 %></strong></article>
-      <article class="admin-stat-card"><span>用户数</span><strong><%= summary.users || 0 %></strong></article>
-      <article class="admin-stat-card"><span>IP 数</span><strong><%= summary.unique_ips || 0 %></strong></article>
-      <article class="admin-stat-card"><span>浏览小说</span><strong><%= summary.novels_viewed || 0 %></strong></article>
-      <article class="admin-stat-card"><span>浏览章节</span><strong><%= summary.chapters_viewed || 0 %></strong></article>
+      <article class="admin-stat-card" title="全站去重，定时聚合"><span>会话数</span><strong><%= summary.sessions || 0 %></strong></article>
+      <article class="admin-stat-card" title="全站去重，定时聚合"><span>用户数</span><strong><%= summary.users || 0 %></strong></article>
+      <article class="admin-stat-card" title="全站去重，定时聚合"><span>IP 数</span><strong><%= summary.unique_ips || 0 %></strong></article>
+      <article class="admin-stat-card" title="全站去重，定时聚合"><span>浏览小说</span><strong><%= summary.novels_viewed || 0 %></strong></article>
+      <article class="admin-stat-card" title="全站去重，定时聚合"><span>浏览章节</span><strong><%= summary.chapters_viewed || 0 %></strong></article>
     </section>
 
     <section class="admin-dashboard-layout">

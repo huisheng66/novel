@@ -4,6 +4,11 @@ const express = require('express');
 const { pool } = require('../db');
 const cache = require('../lib/memoryCache');
 const { getBaseUrl } = require('../lib/util');
+const {
+  buildReaderChapterTitle,
+  mergeParagraphsForReader,
+  splitContentParagraphs
+} = require('../lib/chapterText');
 const { authenticateToken, recordPageView, getRiskStats } = require('./middleware/auth');
 const sourceRoutes = require('./source');
 
@@ -33,15 +38,12 @@ function renderAndCache(req, res, next, cacheKey, view, data) {
 }
 
 function splitParagraphs(chapter) {
-  const cacheKey = `paragraphs:${chapter.id}`;
+  // v3: 合并短段 + 阅读模式友好标题后的段落缓存
+  const cacheKey = `paragraphs:v3:${chapter.id}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const paragraphs = chapter.content
-    .split(/\n\n+/)
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
-
+  const paragraphs = mergeParagraphsForReader(splitContentParagraphs(chapter.content), 100);
   cache.set(cacheKey, paragraphs);
   return paragraphs;
 }
@@ -113,11 +115,12 @@ router.get('/novel/:id/:chapterNum', async (req, res, next) => {
     );
     if (!chapter) return res.status(404).render('404', { url: req.originalUrl });
 
-    // 章节缓存键以 chapter.id 为主键,避免 chapter_number 调整后旧缓存残留
-    const cacheKey = `html:chapter:${chapter.id}`;
+    // v3: 阅读模式优化后的章节 HTML；以 chapter.id 为主键
+    const cacheKey = `html:chapter:v3:${chapter.id}`;
     if (sendCachedHtml(res, cacheKey)) return;
 
     chapter.paragraphs = splitParagraphs(chapter);
+    chapter.readerTitle = buildReaderChapterTitle(chapter.chapter_number, chapter.title);
 
     const [[prevChapter]] = await pool.execute(
       'SELECT chapter_number, title FROM chapters WHERE novel_id = ? AND chapter_number < ? ORDER BY chapter_number DESC LIMIT 1',

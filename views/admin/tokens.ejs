@@ -25,7 +25,7 @@
     <section class="admin-titlebar">
       <div>
         <h1>Token 用户</h1>
-        <p>通过 token 管理前台用户，并统计每个用户的 IP、近 5 分钟访问和总访问。</p>
+        <p>通过 token 管理前台用户。总访问为累计计数；IP/会话为近 30 天去重；最近访问为近 7 天。</p>
       </div>
       <div class="admin-title-actions">
         <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
@@ -105,13 +105,13 @@
           <div class="admin-token-stats">
             <div><span>5 分钟</span><strong><%= user.views_5m || 0 %></strong></div>
             <div><span>总访问</span><strong><%= user.total_views || 0 %></strong></div>
-            <div><span>IP</span><strong><%= user.ip_count || 0 %></strong></div>
-            <div><span>会话</span><strong><%= user.session_count || 0 %></strong></div>
+            <div title="近 30 天去重"><span>IP(30天)</span><strong><%= user.ip_count || 0 %></strong></div>
+            <div title="近 30 天去重"><span>会话(30天)</span><strong><%= user.session_count || 0 %></strong></div>
             <div><span>5 分钟章节</span><strong><%= user.chapter_views_5m || 0 %>/75</strong></div>
           </div>
 
           <div class="admin-token-ip-list">
-            <h3>IP 访问</h3>
+            <h3>IP 访问（近 30 天）</h3>
             <% if (user.ips.length > 0) { %>
               <% user.ips.forEach(function(ip) { %>
                 <div class="admin-token-ip-row">

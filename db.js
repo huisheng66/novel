@@ -99,7 +99,7 @@ async function ensureChapterSchema(conn) {
   }
 }
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 async function ensureSchemaVersionTable(conn) {
   await conn.execute(`
@@ -187,6 +187,48 @@ async function runSchemaMigrations(conn) {
       if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
     }
   }
+
+  // v2: token 累计访问计数，避免 Token 页扫全表
+  if (!await columnExists(conn, 'access_tokens', 'total_views')) {
+    await conn.execute(
+      'ALTER TABLE access_tokens ADD COLUMN total_views INT NOT NULL DEFAULT 0 AFTER risk_reason'
+    );
+  }
+  if (!await columnExists(conn, 'access_tokens', 'last_seen_at')) {
+    await conn.execute(
+      'ALTER TABLE access_tokens ADD COLUMN last_seen_at DATETIME DEFAULT NULL AFTER total_views'
+    );
+  }
+
+  // 从历史 page_views 回填一次（仅当计数全为 0 且有访问记录时）
+  const [[{ token_rows }]] = await conn.execute(
+    'SELECT COUNT(*) AS token_rows FROM access_tokens WHERE total_views > 0'
+  );
+  if (Number(token_rows) === 0) {
+    await conn.execute(`
+      UPDATE access_tokens t
+      INNER JOIN (
+        SELECT access_token_id AS id, COUNT(*) AS cnt, MAX(created_at) AS last_seen
+        FROM page_views
+        WHERE access_token_id IS NOT NULL
+        GROUP BY access_token_id
+      ) s ON s.id = t.id
+      SET t.total_views = s.cnt, t.last_seen_at = s.last_seen
+    `);
+  }
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS analytics_totals (
+      id TINYINT NOT NULL PRIMARY KEY DEFAULT 1,
+      page_views BIGINT NOT NULL DEFAULT 0,
+      sessions BIGINT NOT NULL DEFAULT 0,
+      users BIGINT NOT NULL DEFAULT 0,
+      unique_ips BIGINT NOT NULL DEFAULT 0,
+      novel_views BIGINT NOT NULL DEFAULT 0,
+      chapter_views BIGINT NOT NULL DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 }
 
 async function initDB() {
@@ -235,6 +277,8 @@ async function initDB() {
         is_active TINYINT(1) NOT NULL DEFAULT 1,
         risk_paused_until DATETIME DEFAULT NULL,
         risk_reason VARCHAR(255) DEFAULT NULL,
+        total_views INT NOT NULL DEFAULT 0,
+        last_seen_at DATETIME DEFAULT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE KEY uk_access_tokens_token (token),
         INDEX idx_access_tokens_active (is_active),
@@ -277,6 +321,19 @@ async function initDB() {
         unique_ips INT NOT NULL DEFAULT 0,
         novel_views INT NOT NULL DEFAULT 0,
         chapter_views INT NOT NULL DEFAULT 0,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    `);
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS analytics_totals (
+        id TINYINT NOT NULL PRIMARY KEY DEFAULT 1,
+        page_views BIGINT NOT NULL DEFAULT 0,
+        sessions BIGINT NOT NULL DEFAULT 0,
+        users BIGINT NOT NULL DEFAULT 0,
+        unique_ips BIGINT NOT NULL DEFAULT 0,
+        novel_views BIGINT NOT NULL DEFAULT 0,
+        chapter_views BIGINT NOT NULL DEFAULT 0,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
