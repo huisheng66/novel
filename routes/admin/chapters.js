@@ -20,6 +20,8 @@ const {
   titleFromFilename,
   extractUploadedFile
 } = require('../../lib/chapterText');
+const { contentHash } = require('../../lib/api/tokens');
+const { refreshNovelChapterStats } = require('../../lib/api/books');
 
 const router = express.Router();
 
@@ -66,10 +68,12 @@ router.post('/chapters', async (req, res, next) => {
       return res.redirect(`/admin/chapters/new?novel_id=${novelId || ''}&error=${encodeURIComponent('章节编号、标题和内容不能为空')}`);
     }
 
+    const hash = contentHash(content);
     await pool.execute(
-      'INSERT INTO chapters (novel_id, chapter_number, title, content) VALUES (?, ?, ?, ?)',
-      [novelId, chapterNumber, title, content]
+      'INSERT INTO chapters (novel_id, chapter_number, title, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+      [novelId, chapterNumber, title, content, hash]
     );
+    await refreshNovelChapterStats(novelId);
     clearNovelCache(novelId);
 
     res.redirect(`/admin?novel_id=${novelId}&notice=${encodeURIComponent('章节已创建')}`);
@@ -127,9 +131,10 @@ router.post('/chapters/upload', upload.array('chapter_files', 50), async (req, r
         }
 
         for (const chapter of chapters) {
+          const body = formatChapterContent(chapter.content);
           await conn.execute(
-            'INSERT INTO chapters (novel_id, chapter_number, title, content) VALUES (?, ?, ?, ?)',
-            [novelId, chapterNumber, chapter.title, formatChapterContent(chapter.content)]
+            'INSERT INTO chapters (novel_id, chapter_number, title, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+            [novelId, chapterNumber, chapter.title, body, contentHash(body)]
           );
           chapterNumber += 1;
         }
@@ -141,6 +146,7 @@ router.post('/chapters/upload', upload.array('chapter_files', 50), async (req, r
     }
 
     await conn.commit();
+    await refreshNovelChapterStats(novelId);
     clearNovelCache(novelId);
 
     const parts = [];
@@ -222,9 +228,10 @@ router.post('/chapters/:id', async (req, res, next) => {
     }
 
     await pool.execute(
-      'UPDATE chapters SET novel_id = ?, chapter_number = ?, title = ?, content = ? WHERE id = ?',
-      [novelId, chapterNumber, title, content, chapterId]
+      'UPDATE chapters SET novel_id = ?, chapter_number = ?, title = ?, content = ?, content_hash = ?, updated_at = NOW() WHERE id = ?',
+      [novelId, chapterNumber, title, content, contentHash(content), chapterId]
     );
+    await refreshNovelChapterStats(novelId);
     clearChapterCache(novelId, chapterId);
 
     res.redirect(`/admin?novel_id=${novelId}&chapter_id=${chapterId}&notice=${encodeURIComponent('章节已更新')}`);
@@ -246,6 +253,7 @@ router.post('/chapters/:id/delete', async (req, res, next) => {
     }
 
     await pool.execute('DELETE FROM chapters WHERE id = ?', [chapterId]);
+    if (novelId) await refreshNovelChapterStats(novelId);
     clearNovelCache(novelId);
     res.redirect(`/admin?novel_id=${novelId || ''}&notice=${encodeURIComponent('章节已删除')}`);
   } catch (err) {

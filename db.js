@@ -99,7 +99,7 @@ async function ensureChapterSchema(conn) {
   }
 }
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 async function ensureSchemaVersionTable(conn) {
   await conn.execute(`
@@ -228,6 +228,150 @@ async function runSchemaMigrations(conn) {
       chapter_views BIGINT NOT NULL DEFAULT 0,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // v3: 官方 App /api/v1 — 用户、书架、进度、书/章同步字段
+  await runSchemaMigrationsV3(conn);
+}
+
+async function runSchemaMigrationsV3(conn) {
+  if (!await columnExists(conn, 'novels', 'status')) {
+    await conn.execute(
+      "ALTER TABLE novels ADD COLUMN status VARCHAR(32) NOT NULL DEFAULT 'serializing' AFTER cover_image"
+    );
+  }
+  if (!await columnExists(conn, 'novels', 'updated_at')) {
+    await conn.execute(
+      'ALTER TABLE novels ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at'
+    );
+  }
+  if (!await columnExists(conn, 'novels', 'last_chapter_number')) {
+    await conn.execute(
+      'ALTER TABLE novels ADD COLUMN last_chapter_number INT DEFAULT NULL AFTER status'
+    );
+  }
+  if (!await columnExists(conn, 'novels', 'last_chapter_title')) {
+    await conn.execute(
+      'ALTER TABLE novels ADD COLUMN last_chapter_title VARCHAR(255) DEFAULT NULL AFTER last_chapter_number'
+    );
+  }
+
+  if (!await columnExists(conn, 'chapters', 'updated_at')) {
+    await conn.execute(
+      'ALTER TABLE chapters ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at'
+    );
+  }
+  if (!await columnExists(conn, 'chapters', 'content_hash')) {
+    await conn.execute(
+      'ALTER TABLE chapters ADD COLUMN content_hash CHAR(64) DEFAULT NULL AFTER content'
+    );
+  }
+  if (!await indexExists(conn, 'chapters', 'idx_chapters_novel_updated')) {
+    try {
+      await conn.execute(
+        'CREATE INDEX idx_chapters_novel_updated ON chapters (novel_id, updated_at)'
+      );
+    } catch (err) {
+      if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
+    }
+  }
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      username VARCHAR(64) NOT NULL,
+      email VARCHAR(255) DEFAULT NULL,
+      password_hash VARCHAR(255) NOT NULL,
+      display_name VARCHAR(100) NOT NULL DEFAULT '',
+      is_active TINYINT(1) NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_users_username (username),
+      UNIQUE KEY uk_users_email (email)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      refresh_token_hash CHAR(64) NOT NULL,
+      device_name VARCHAR(100) DEFAULT NULL,
+      user_agent VARCHAR(255) DEFAULT NULL,
+      expires_at DATETIME NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_seen_at DATETIME DEFAULT NULL,
+      UNIQUE KEY uk_user_sessions_refresh (refresh_token_hash),
+      INDEX idx_user_sessions_user (user_id),
+      INDEX idx_user_sessions_expires (expires_at),
+      CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS bookshelf (
+      user_id INT NOT NULL,
+      novel_id INT NOT NULL,
+      pinned TINYINT(1) NOT NULL DEFAULT 0,
+      sort_order INT NOT NULL DEFAULT 0,
+      added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      last_opened_at DATETIME DEFAULT NULL,
+      PRIMARY KEY (user_id, novel_id),
+      INDEX idx_bookshelf_novel (novel_id),
+      CONSTRAINT fk_bookshelf_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_bookshelf_novel FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS reading_progress (
+      user_id INT NOT NULL,
+      novel_id INT NOT NULL,
+      chapter_number INT NOT NULL,
+      chapter_id INT DEFAULT NULL,
+      offset_ratio DOUBLE NOT NULL DEFAULT 0,
+      updated_at DATETIME NOT NULL,
+      device_name VARCHAR(100) DEFAULT NULL,
+      PRIMARY KEY (user_id, novel_id),
+      INDEX idx_progress_updated (updated_at),
+      CONSTRAINT fk_progress_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_progress_novel FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 回填章节 content_hash / updated_at（仅空 hash）
+  const crypto = require('crypto');
+  const [needHash] = await conn.execute(
+    `SELECT id, content FROM chapters
+     WHERE content_hash IS NULL OR content_hash = ''
+     LIMIT 5000`
+  );
+  for (const row of needHash) {
+    const hash = crypto.createHash('sha256').update(String(row.content || ''), 'utf8').digest('hex');
+    await conn.execute(
+      'UPDATE chapters SET content_hash = ?, updated_at = COALESCE(updated_at, created_at, NOW()) WHERE id = ?',
+      [hash, row.id]
+    );
+  }
+
+  // 回填 novels 最新章冗余字段
+  await conn.execute(`
+    UPDATE novels n
+    LEFT JOIN (
+      SELECT c.novel_id,
+             c.chapter_number AS last_chapter_number,
+             c.title AS last_chapter_title,
+             c.updated_at AS chapter_updated_at
+      FROM chapters c
+      INNER JOIN (
+        SELECT novel_id, MAX(chapter_number) AS max_num
+        FROM chapters
+        GROUP BY novel_id
+      ) m ON m.novel_id = c.novel_id AND m.max_num = c.chapter_number
+    ) x ON x.novel_id = n.id
+    SET n.last_chapter_number = x.last_chapter_number,
+        n.last_chapter_title = x.last_chapter_title,
+        n.updated_at = COALESCE(x.chapter_updated_at, n.updated_at, n.created_at, NOW())
   `);
 }
 
@@ -370,12 +514,22 @@ async function initDB() {
         { cn: 3, title: '第三章 夜探藏经阁', content: '引气入体之后，秦羽感觉整个世界都变得不一样了。\n\n他能听到殿外侍卫的呼吸声，能分辨出风中带来的各种气息，甚至能在黑暗中看清百步之外的一片落叶。\n\n但他知道，这只是开始。\n\n《星辰诀》上说，引气入体只是第一步，接下来需要吸收足够的星辰之力来淬炼肉身、开辟经脉。而这个过程，需要大量的功法典籍来参考印证。\n\n皇宫里藏书最多的地方，是藏经阁。\n\n那里收藏了楚国数百年来搜罗的各种功法秘籍——虽然大多是低阶功法，但对于现在的秦羽来说，已经足够了。\n\n问题是，他被软禁了。\n\n秦羽推开窗户，看着外面深沉的夜色，嘴角露出一丝微笑。软禁？对一个刚刚踏入修行门槛的人来说，这不过是一个小小的麻烦罢了。' }
       ];
 
+      const crypto = require('crypto');
       for (const ch of chapters) {
+        const contentHash = crypto.createHash('sha256').update(ch.content, 'utf8').digest('hex');
         await conn.execute(
-          'INSERT INTO chapters (novel_id, chapter_number, title, content) VALUES (?, ?, ?, ?)',
-          [1, ch.cn, ch.title, ch.content]
+          'INSERT INTO chapters (novel_id, chapter_number, title, content, content_hash) VALUES (?, ?, ?, ?, ?)',
+          [1, ch.cn, ch.title, ch.content, contentHash]
         );
       }
+      await conn.execute(`
+        UPDATE novels n
+        SET last_chapter_number = 3,
+            last_chapter_title = '第三章 夜探藏经阁',
+            updated_at = NOW(),
+            status = 'serializing'
+        WHERE id = 1
+      `);
       logger.info('种子数据已插入', { novels: 1, chapters: 3 });
     }
   } finally {
