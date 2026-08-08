@@ -354,10 +354,85 @@ Body:
 触发时 HTTP **429**，`Retry-After` 秒，`error.code = RATE_LIMITED`。  
 说明：单机内存窗口；多实例各自计数（后续可换 Redis）。
 
+## 书签 / 笔记（第 4 期）
+
+绑定：`userId + novelId + chapterNumber + offsetRatio`（并冗余 `chapterId`）。
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/me/bookmarks?novelId=` | 列表（可选按书过滤） |
+| GET | `/me/bookmarks/:id` | 单条 |
+| POST | `/me/bookmarks` | 创建 |
+| PUT | `/me/bookmarks/:id` | 更新 note/offset/章 |
+| DELETE | `/me/bookmarks/:id` | 删除 |
+
+```json
+// POST body
+{
+  "novelId": 10,
+  "chapterNumber": 120,
+  "offsetRatio": 0.25,
+  "note": "这段伏笔",
+  "color": "yellow"
+}
+```
+
+## 运营面（第 4 期）
+
+### `GET /ops`（无需登录）
+
+```json
+{
+  "announcement": { "enabled": true, "text": "今晚 2 点维护" },
+  "updatePolicy": {
+    "minClientVersion": "1.2.0",
+    "forceUpdate": false,
+    "message": "请更新到最新版本后继续使用",
+    "storeUrl": "https://…"
+  },
+  "serverTime": "…",
+  "updatedAt": "…"
+}
+```
+
+### `PUT /ops`（运维写）
+
+Header：`X-Ops-Admin-Key: <API_OPS_ADMIN_KEY 或 ADMIN_PASSWORD>`
+
+Body 示例：
+
+```json
+{
+  "announcement": { "enabled": true, "text": "公告内容" },
+  "updatePolicy": {
+    "minClientVersion": "1.0.0",
+    "forceUpdate": false,
+    "message": "…",
+    "storeUrl": ""
+  }
+}
+```
+
+## 设备订阅与更新通知（第 4 期）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/me/devices` | 注册/更新设备（`deviceId` 必填；`pushToken` 可选，**不**向 FCM 发送） |
+| GET | `/me/devices` | 设备列表 |
+| GET | `/me/notices/updates?since=` | 书架「有新章」通知（语义对齐 shelf/updates） |
+
+`POST /me/devices` body：
+
+```json
+{ "deviceId": "pixel-abc", "platform": "android", "pushToken": "…", "enabled": true }
+```
+
+通知项含 `type: new_chapters`、`newChapterCount`、`message` 等。真实手机推送为非目标（见 Non-goals）。
+
 ## 章节 ID 约定
 
 - `chapterNumber`：书内顺序号，与 Web `/novel/:id/:chapterNum` 一致；进度默认绑此字段  
-- `chapterId`：数据库行 ID，稳定引用（笔记后期用）  
+- `chapterId`：数据库行 ID，稳定引用（笔记/书签使用）  
 - **禁止**复用 `chapterNumber` 表达不同剧情章；新章只追加  
 
 ## 分期
@@ -367,7 +442,7 @@ Body:
 | auth / books / toc 分页 / chapter / shelf / progress | 1（已完成） |
 | toc delta / shelf updates / ETag 强化 / Web 进度可选同步 | 2（已完成） |
 | progress batch / 限流 / 运维文档 | 3（已完成） |
-| 推送 / 笔记云 / AI | 4 |
+| 书签笔记 / 运营强更 / 设备订阅与更新通知 | 4（已完成；TTS/AI/真推送在客户端或后续） |
 
 ## 与 Web / Legado
 
@@ -397,6 +472,7 @@ API_RATE_LIMIT_CHAPTER_MAX=180
 API_RATE_LIMIT_CHAPTER_WINDOW_MS=60000
 API_RATE_LIMIT_PROGRESS_BATCH_MAX=60
 API_RATE_LIMIT_PROGRESS_BATCH_WINDOW_MS=60000
+API_OPS_ADMIN_KEY=
 ```
 
-生产备份与 SCHEMA 迁移见 [api-ops.md](./api-ops.md)。
+生产备份与 SCHEMA 迁移见 [api-ops.md](./api-ops.md)。SCHEMA 当前目标版本 **4**。

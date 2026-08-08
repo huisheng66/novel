@@ -189,6 +189,98 @@ async function main() {
   assert(badUpdates.status === 400, 'shelf updates should require since');
   console.log('OK shelf updates requires since');
 
+  // —— 第 4 期：书签 CRUD ——
+  const bmCreate = await req('POST', '/api/v1/me/bookmarks', {
+    token: access,
+    body: {
+      novelId: bookId,
+      chapterNumber,
+      offsetRatio: 0.33,
+      note: 'smoke-bookmark-note',
+      color: 'yellow'
+    }
+  });
+  assert(bmCreate.status === 201 && bmCreate.data.id, `bookmark create failed: ${JSON.stringify(bmCreate.data)}`);
+  assert(bmCreate.data.novelId === bookId, 'bookmark novelId');
+  assert(Number(bmCreate.data.chapterNumber) === chapterNumber, 'bookmark chapter');
+  assert(bmCreate.data.note === 'smoke-bookmark-note', 'bookmark note');
+  const bmId = bmCreate.data.id;
+  console.log('OK bookmark create', { id: bmId });
+
+  const bmList = await req('GET', `/api/v1/me/bookmarks?novelId=${bookId}`, { token: access });
+  assert(bmList.status === 200 && bmList.data.items.some(i => i.id === bmId), 'bookmark list missing id');
+  console.log('OK bookmark list');
+
+  const bmUpdate = await req('PUT', `/api/v1/me/bookmarks/${bmId}`, {
+    token: access,
+    body: { note: 'smoke-bookmark-updated', offsetRatio: 0.5 }
+  });
+  assert(bmUpdate.status === 200 && bmUpdate.data.note === 'smoke-bookmark-updated', 'bookmark update failed');
+  assert(Number(bmUpdate.data.offsetRatio) === 0.5, 'bookmark offset');
+  console.log('OK bookmark update');
+
+  const bmDel = await req('DELETE', `/api/v1/me/bookmarks/${bmId}`, { token: access });
+  assert(bmDel.status === 200 && bmDel.data.deleted === true, 'bookmark delete failed');
+  const bmList2 = await req('GET', `/api/v1/me/bookmarks?novelId=${bookId}`, { token: access });
+  assert(bmList2.status === 200 && !bmList2.data.items.some(i => i.id === bmId), 'bookmark still listed after delete');
+  console.log('OK bookmark delete');
+
+  // —— 运营面 ——
+  const opsGet = await req('GET', '/api/v1/ops');
+  assert(opsGet.status === 200 && opsGet.data.announcement && opsGet.data.updatePolicy, `ops get failed: ${JSON.stringify(opsGet.data)}`);
+  assert(typeof opsGet.data.updatePolicy.minClientVersion === 'string', 'ops minClientVersion');
+  console.log('OK ops get');
+
+  const adminKey = process.env.API_OPS_ADMIN_KEY || process.env.ADMIN_PASSWORD || 'admin123';
+  const opsPutRes = await fetch(`${base}/api/v1/ops`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      'X-Ops-Admin-Key': adminKey
+    },
+    body: JSON.stringify({
+      announcement: { enabled: true, text: 'smoke-announcement' },
+      updatePolicy: {
+        minClientVersion: '1.0.0',
+        forceUpdate: false,
+        message: 'smoke-force-msg',
+        storeUrl: 'https://example.com/app'
+      }
+    })
+  });
+  const opsPutBody = await opsPutRes.json();
+  assert(opsPutRes.status === 200, `ops put failed: ${JSON.stringify(opsPutBody)}`);
+  assert(opsPutBody.announcement && opsPutBody.announcement.text === 'smoke-announcement', 'ops announcement text');
+  assert(opsPutBody.updatePolicy.minClientVersion === '1.0.0', 'ops min version');
+  console.log('OK ops put');
+
+  const opsGet2 = await req('GET', '/api/v1/ops');
+  assert(opsGet2.data.announcement.text === 'smoke-announcement', 'ops re-read announcement');
+  console.log('OK ops re-read');
+
+  // —— 设备 + 更新通知 ——
+  const dev = await req('POST', '/api/v1/me/devices', {
+    token: access,
+    body: { deviceId: `smoke-device-${Date.now()}`, platform: 'android', pushToken: 'fake-token', enabled: true }
+  });
+  assert(dev.status === 201 && dev.data.deviceId, `device register failed: ${JSON.stringify(dev.data)}`);
+  console.log('OK device register');
+
+  // 进度停在第 1 章时，若全书有更多章 → notices 应有 new_chapters
+  const bookMeta = await req('GET', `/api/v1/books/${bookId}`, { token: access });
+  const lastCh = bookMeta.data.lastChapterNumber;
+  if (lastCh != null && lastCh > chapterNumber) {
+    const notices = await req('GET', '/api/v1/me/notices/updates', { token: access });
+    assert(notices.status === 200 && Array.isArray(notices.data.items), `notices failed: ${JSON.stringify(notices.data)}`);
+    const hit = notices.data.items.find(i => i.novelId === bookId && i.type === 'new_chapters');
+    assert(hit, `expected new_chapters notice for novel ${bookId}, got ${JSON.stringify(notices.data.items)}`);
+    assert(hit.newChapterCount > 0, 'newChapterCount');
+    console.log('OK notices updates', { newChapterCount: hit.newChapterCount });
+  } else {
+    console.log('SKIP notices (book has only one chapter)');
+  }
+
   const refreshed = await req('POST', '/api/v1/auth/refresh', { body: { refreshToken: refresh } });
   assert(refreshed.status === 200 && refreshed.data.accessToken, 'refresh failed');
   access = refreshed.data.accessToken;
@@ -197,7 +289,7 @@ async function main() {
   await req('POST', '/api/v1/auth/logout', { body: { refreshToken: refreshed.data.refreshToken } });
   console.log('OK logout');
 
-  console.log('\nAll smoke-api-v1 checks passed (phase 0-3).');
+  console.log('\nAll smoke-api-v1 checks passed (phase 0-4).');
 }
 
 main().catch(err => {

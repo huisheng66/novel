@@ -99,7 +99,7 @@ async function ensureChapterSchema(conn) {
   }
 }
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 async function ensureSchemaVersionTable(conn) {
   await conn.execute(`
@@ -232,6 +232,8 @@ async function runSchemaMigrations(conn) {
 
   // v3: 官方 App /api/v1 — 用户、书架、进度、书/章同步字段
   await runSchemaMigrationsV3(conn);
+  // v4: 书签/笔记、运营配置、设备订阅（更新通知）
+  await runSchemaMigrationsV4(conn);
 }
 
 async function runSchemaMigrationsV3(conn) {
@@ -372,6 +374,68 @@ async function runSchemaMigrationsV3(conn) {
     SET n.last_chapter_number = x.last_chapter_number,
         n.last_chapter_title = x.last_chapter_title,
         n.updated_at = COALESCE(x.chapter_updated_at, n.updated_at, n.created_at, NOW())
+  `);
+}
+
+async function runSchemaMigrationsV4(conn) {
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS reading_bookmarks (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      novel_id INT NOT NULL,
+      chapter_number INT NOT NULL,
+      chapter_id INT DEFAULT NULL,
+      offset_ratio DOUBLE NOT NULL DEFAULT 0,
+      note TEXT,
+      color VARCHAR(32) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_bookmarks_user (user_id, updated_at),
+      INDEX idx_bookmarks_user_novel (user_id, novel_id),
+      CONSTRAINT fk_bookmarks_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_bookmarks_novel FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS platform_settings (
+      setting_key VARCHAR(64) NOT NULL PRIMARY KEY,
+      setting_value TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 默认运营配置（仅当键不存在时插入）
+  const defaults = [
+    ['announcement', ''],
+    ['announcement_enabled', '0'],
+    ['min_client_version', '0.0.0'],
+    ['force_update', '0'],
+    ['force_update_message', '请更新到最新版本后继续使用'],
+    ['store_url', '']
+  ];
+  for (const [key, value] of defaults) {
+    await conn.execute(
+      `INSERT IGNORE INTO platform_settings (setting_key, setting_value) VALUES (?, ?)`,
+      [key, value]
+    );
+  }
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS device_subscriptions (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      device_id VARCHAR(128) NOT NULL,
+      platform VARCHAR(32) DEFAULT NULL,
+      push_token VARCHAR(512) DEFAULT NULL,
+      enabled TINYINT(1) NOT NULL DEFAULT 1,
+      last_seen_at DATETIME DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_device_user (user_id, device_id),
+      INDEX idx_device_enabled (user_id, enabled),
+      CONSTRAINT fk_device_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 }
 

@@ -8,6 +8,10 @@ const authRoutes = require('./auth');
 const booksRoutes = require('./books');
 const shelfRoutes = require('./shelf');
 const progressRoutes = require('./progress');
+const bookmarksRoutes = require('./bookmarks');
+const opsRoutes = require('./ops');
+const devicesRoutes = require('./devices');
+const noticesRoutes = require('./notices');
 
 const router = express.Router();
 
@@ -26,6 +30,9 @@ router.get('/health', (req, res) => {
   res.json({ status: 'ok', apiVersion: 1 });
 });
 
+// 公开运营面（无需登录）
+router.use('/ops', opsRoutes);
+
 router.use('/auth', authRoutes);
 
 router.get('/me', requireUser, asyncRoute(async (req, res) => {
@@ -35,6 +42,9 @@ router.get('/me', requireUser, asyncRoute(async (req, res) => {
 
 router.use('/me/shelf', shelfRoutes);
 router.use('/me/progress', progressRoutes);
+router.use('/me/bookmarks', bookmarksRoutes);
+router.use('/me/devices', devicesRoutes);
+router.use('/me/notices', noticesRoutes);
 router.use('/books', booksRoutes);
 
 router.use((err, req, res, next) => {

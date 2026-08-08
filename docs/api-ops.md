@@ -33,7 +33,7 @@ mysqldump -u root -p --no-tablespaces --single-transaction novel \
 - 读 `schema_version`  
 - 若 `< SCHEMA_VERSION` 则跑增量迁移并写入版本号  
 
-当前目标版本：**3**（用户/书架/进度 + novels/chapters 同步字段）。
+当前目标版本：**4**（v3 + 书签/笔记、platform_settings、device_subscriptions）。
 
 ```bash
 # 部署后确认
