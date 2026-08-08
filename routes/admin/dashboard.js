@@ -14,8 +14,8 @@ const { getDashboardMetrics } = require('./lib/metrics');
 
 const router = express.Router();
 
-const DEFAULT_CHAPTER_PAGE_SIZE = 80;
-const MAX_CHAPTER_PAGE_SIZE = 200;
+const DEFAULT_CHAPTER_PAGE_SIZE = 40;
+const MAX_CHAPTER_PAGE_SIZE = 100;
 
 async function renderDashboard(req, res, options = {}) {
   const novels = await getNovels();
@@ -39,12 +39,13 @@ async function renderDashboard(req, res, options = {}) {
     );
     nextNumber = nextRow.next_number;
 
+    // 首屏只带章节元数据，正文由前端 API 异步加载，避免把 LONGTEXT 塞进 HTML
     if (selectedChapterId) {
       const [[chapter]] = await pool.execute(
-        'SELECT id, novel_id, chapter_number, title, content FROM chapters WHERE id = ? AND novel_id = ?',
+        'SELECT id, novel_id, chapter_number, title FROM chapters WHERE id = ? AND novel_id = ?',
         [selectedChapterId, currentNovel.id]
       );
-      selectedChapter = chapter || null;
+      selectedChapter = chapter ? { ...chapter, content: '' } : null;
     }
 
     const pageSize = Math.min(

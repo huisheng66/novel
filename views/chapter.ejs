@@ -13,7 +13,7 @@
   <% if (novel.cover_image) { %>
     <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
   <% } %>
-  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/main.css?v=20260807f">
   <script>
     (function() {
       var theme = localStorage.getItem('reader-theme');
@@ -31,7 +31,7 @@
         <span class="breadcrumb"> / </span>
         <span class="breadcrumb-current"><%= chapter.readerTitle || chapter.title %></span>
       </span>
-      <a class="header-shelf" href="/" title="返回书架">书架</a>
+      <a class="header-shelf" href="/" title="返回书架" id="header-shelf">书架</a>
     </div>
   </header>
 
@@ -178,6 +178,19 @@
           if (next) window.location.href = next.href;
         }
       });
+
+      // 书架：触控按下即跳转，减少大页面上的 click 延迟
+      var shelf = document.getElementById('header-shelf');
+      if (shelf) {
+        shelf.addEventListener('pointerdown', function(e) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+          var href = shelf.href;
+          if (!href) return;
+          e.preventDefault();
+          window.location.assign(href);
+        }, { passive: false });
+      }
     })();
   </script>
 </body>

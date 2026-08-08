@@ -282,8 +282,24 @@
 .admin-chapter-workspace {
   display: grid;
   grid-template-columns: minmax(18rem, 40%) minmax(0, 1fr);
+  grid-template-areas:
+    "upload upload"
+    "list editor";
   gap: 1rem;
   align-items: start;
+}
+
+.admin-upload-block {
+  grid-area: upload;
+}
+
+.admin-chapter-list-block {
+  grid-area: list;
+}
+
+.admin-chapter-editor-block {
+  grid-area: editor;
+  min-width: 0;
 }
 
 .admin-novel-info-layout {
@@ -378,10 +394,15 @@
 .admin-chapter-list {
   overflow: auto;
   padding-right: 0.25rem;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  contain: content;
 }
 
 .admin-chapter-row {
   border-bottom: 1px solid var(--border);
+  content-visibility: auto;
+  contain-intrinsic-size: auto 2.75rem;
 }
 
 .admin-chapter-row.is-active {
@@ -390,9 +411,9 @@
 
 .admin-chapter-row > a {
   display: grid;
-  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  grid-template-columns: 3rem minmax(0, 1fr);
   gap: 0.65rem;
-  align-items: baseline;
+  align-items: center;
   padding: 0.65rem;
   color: var(--text);
 }
@@ -406,12 +427,6 @@
 .admin-chapter-title {
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.admin-chapter-length {
-  color: var(--muted);
-  font-size: 0.82rem;
   white-space: nowrap;
 }
 
@@ -440,6 +455,8 @@
   display: grid;
   gap: 1rem;
 }
+
+/* 兼容旧类名：工具区已拆成独立区块 */
 
 .admin-alert {
   padding: 0.65rem 0.8rem;
@@ -576,7 +593,16 @@
 }
 
 [data-chapter-editor].is-loading {
-  opacity: 0.72;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+[data-chapter-editor].is-loading::after {
+  content: '加载中…';
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .admin-chapter-link[aria-disabled="true"] {
@@ -1026,4 +1052,305 @@
 
 .admin-token-ip-row span {
   overflow-wrap: anywhere;
+}
+
+/* ===== Responsive: tablet & phone ===== */
+@media (max-width: 980px) {
+  .admin-dashboard-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-dashboard-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-token-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-token-stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .admin-novel-info-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-chapter-workspace {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "upload"
+      "list"
+      "editor";
+  }
+
+  .admin-chapter-list-block {
+    position: static;
+    max-height: none;
+    grid-template-rows: none;
+  }
+
+  .admin-chapter-list {
+    max-height: min(55vh, 28rem);
+  }
+}
+
+@media (max-width: 720px) {
+  .admin-main {
+    padding: 1rem 0.9rem 2.5rem;
+  }
+
+  .admin-header .header-inner,
+  .admin-main {
+    max-width: none;
+  }
+
+  .admin-header-inner {
+    align-items: flex-start;
+    gap: 0.65rem;
+  }
+
+  .admin-titlebar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+
+  .admin-titlebar h1 {
+    font-size: 1.3rem;
+  }
+
+  .admin-title-actions {
+    justify-content: flex-start;
+    gap: 0.45rem;
+  }
+
+  .admin-title-actions .button {
+    flex: 1 1 auto;
+    min-width: calc(50% - 0.3rem);
+    min-height: 2.5rem;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.86rem;
+  }
+
+  .admin-block {
+    padding: 0.85rem;
+  }
+
+  .admin-section-title {
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.75rem;
+  }
+
+  .admin-section-title span {
+    width: 100%;
+    line-height: 1.45;
+  }
+
+  .admin-current-novel {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .admin-current-novel .button {
+    width: 100%;
+    min-height: 2.5rem;
+  }
+
+  .admin-novel-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 0.15rem;
+    margin: 0 -0.15rem;
+    padding-left: 0.15rem;
+    padding-right: 0.15rem;
+    scrollbar-width: thin;
+  }
+
+  .admin-novel-tabs a {
+    flex: 0 0 auto;
+    max-width: none;
+    min-height: 2.35rem;
+    padding: 0.45rem 0.7rem;
+  }
+
+  .admin-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-pagination {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .admin-pagination-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.35rem 0.65rem;
+    line-height: 1.4;
+  }
+
+  .admin-pagination-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.45rem;
+  }
+
+  .admin-pagination .button,
+  .admin-pagination .button.is-disabled {
+    width: 100%;
+    min-height: 2.5rem;
+    justify-content: center;
+  }
+
+  .admin-chapter-row > a {
+    grid-template-columns: 2.4rem minmax(0, 1fr);
+    gap: 0.45rem;
+    padding: 0.75rem 0.45rem;
+    min-height: 2.75rem;
+    align-items: center;
+  }
+
+  .admin-chapter-title {
+    font-size: 0.92rem;
+  }
+
+  .admin-upload-mode {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .admin-upload-mode label {
+    justify-content: center;
+    min-height: 2.5rem;
+  }
+
+  .admin-upload-mode label + label {
+    border-left: 1px solid var(--border);
+  }
+
+  .admin-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+  }
+
+  .admin-actions .button {
+    width: 100%;
+    min-height: 2.6rem;
+  }
+
+  .admin-dashboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-stat-card strong {
+    font-size: 1.2rem;
+  }
+
+  .admin-token-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-token-novel-form {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-token-novel-form .button {
+    width: 100%;
+    min-height: 2.5rem;
+  }
+
+  .admin-token-card-head,
+  .admin-token-card-foot,
+  .admin-token-ip-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.55rem;
+  }
+
+  .admin-token-card-foot .admin-table-actions,
+  .admin-token-card-head .admin-table-actions {
+    justify-content: flex-start;
+  }
+
+  .admin-cover-panel {
+    grid-template-columns: 1fr;
+    justify-items: start;
+  }
+
+  .admin-cover-preview {
+    width: 7.5rem;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 0.55rem 0.4rem;
+    font-size: 0.84rem;
+  }
+
+  .admin-mono-cell {
+    max-width: 9rem;
+  }
+
+  .admin-trend-chart {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    min-height: 12rem;
+    overflow-x: auto;
+  }
+
+  .admin-trend-bars {
+    height: 9rem;
+  }
+
+  .admin-login-panel {
+    width: 100%;
+    padding: 1.15rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .admin-title-actions .button {
+    min-width: 100%;
+  }
+
+  .admin-chapter-row > a {
+    grid-template-columns: 2.2rem minmax(0, 1fr);
+  }
+
+  .admin-dashboard-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-token-stats {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .admin-token-stats div:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (pointer: coarse) {
+  .button,
+  .admin-header-inner button,
+  .admin-novel-tabs a,
+  .admin-chapter-row > a {
+    min-height: 2.5rem;
+  }
+
+  .admin-form input,
+  .admin-form select,
+  .admin-form textarea {
+    font-size: 16px; /* 避免 iOS 聚焦时整页缩放 */
+  }
 }

@@ -13,13 +13,13 @@
   <% if (novel.cover_image) { %>
     <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
   <% } %>
-  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/main.css?v=20260807f">
 </head>
 <body>
   <header id="site-header">
     <div class="header-inner">
       <span class="breadcrumb-current"><%= novel.title %></span>
-      <a class="header-shelf" href="/" title="返回书架">书架</a>
+      <a class="header-shelf" href="/" title="返回书架" id="header-shelf">书架</a>
     </div>
   </header>
 
@@ -42,24 +42,27 @@
     <article class="novel-detail">
       <header class="novel-meta novel-meta-with-cover">
         <% if (novel.cover_image) { %>
-          <img class="novel-cover" src="<%= novel.cover_image %>" alt="<%= novel.title %> 封面">
+          <img class="novel-cover" src="<%= novel.cover_image %>" alt="<%= novel.title %> 封面" fetchpriority="high">
         <% } else { %>
           <span class="novel-cover novel-cover-placeholder" aria-hidden="true"></span>
         <% } %>
         <span>
           <h1><%= novel.title %></h1>
           <p class="novel-desc"><%= novel.description %></p>
+          <p class="novel-chapter-total"><%= chapters.length %> 章</p>
         </span>
       </header>
 
-      <nav class="chapter-list" aria-label="章节目录" role="directory">
+      <nav class="chapter-list" aria-label="章节目录" role="directory" id="chapter-list-nav">
         <h2 class="sr-only">章节目录</h2>
-        <ol id="chapter-list-ol">
-          <% chapters.forEach(function(ch) { %>
-            <li data-chapter-number="<%= ch.chapter_number %>" data-chapter-title="<%= ch.title %>">
-              <a href="/novel/<%= novel.id %>/<%= ch.chapter_number %>">
-                <span class="ch-num"><%= String(ch.chapter_number).padStart(2, '0') %></span><%= ch.title %>
-              </a>
+        <%# 全量渲染；content-visibility 让屏外章节几乎不参与布局/绘制 %>
+        <ol id="chapter-list-ol" class="chapter-list-ol">
+          <% chapters.forEach(function(ch) {
+            var n = ch.chapter_number;
+            var numStr = n < 10 ? ('0' + n) : String(n);
+          %>
+            <li data-n="<%= n %>">
+              <a href="/novel/<%= novel.id %>/<%= n %>"><span class="ch-num"><%= numStr %></span><%= ch.title %></a>
             </li>
           <% }) %>
           <% if (chapters.length === 0) { %>
@@ -83,130 +86,206 @@
 
   <script>
     (function() {
+      var shelf = document.getElementById('header-shelf');
+      var ol = document.getElementById('chapter-list-ol');
+      var nav = document.getElementById('chapter-list-nav');
       var island = document.getElementById('chapter-search-island');
       var input = document.getElementById('chapter-search-input');
       var clearBtn = document.getElementById('chapter-search-clear');
       var form = document.getElementById('chapter-search-form');
       var countEl = document.getElementById('chapter-search-count');
       var emptyEl = document.getElementById('chapter-search-empty');
-      var ol = document.getElementById('chapter-list-ol');
-      if (!island || !input || !ol) return;
+      var backBtn = document.getElementById('back-to-top');
 
-      var items = Array.prototype.slice.call(ol.querySelectorAll('li[data-chapter-number]'));
-      var total = items.length;
-      var lastY = window.scrollY;
+      // —— 书架：先卸掉重 DOM，再跳转，避免 2000+ 节点卸载卡住导航 ——
+      function goShelf(href) {
+        try {
+          if (ol) {
+            ol.replaceChildren();
+            ol.style.display = 'none';
+          }
+          if (nav) nav.style.contentVisibility = 'hidden';
+        } catch (e) {}
+        window.location.assign(href);
+      }
+
+      if (shelf) {
+        shelf.addEventListener('pointerdown', function(e) {
+          if (e.pointerType === 'mouse' && e.button !== 0) return;
+          if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+          var href = shelf.href;
+          if (!href) return;
+          e.preventDefault();
+          goShelf(href);
+        }, { passive: false });
+        // 键盘 Enter / 无 pointer 环境兜底
+        shelf.addEventListener('click', function(e) {
+          if (e.defaultPrevented) return;
+          if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+          e.preventDefault();
+          goShelf(shelf.href);
+        });
+      }
+
+      if (!ol) return;
+
+      // 懒取 li 列表：首屏不 querySelectorAll，避免启动卡顿
+      var itemsCache = null;
+      function getItems() {
+        if (!itemsCache) {
+          itemsCache = ol.querySelectorAll('li[data-n]');
+        }
+        return itemsCache;
+      }
+
+      // —— 搜索：分片改 display，避免一次循环 2000 次同步布局 ——
+      var filterTimer = 0;
+      var filterToken = 0;
+      var CHUNK = 120;
+
+      function applyFilter(q) {
+        var query = String(q || '').trim().toLowerCase();
+        var items = getItems();
+        var total = items.length;
+        filterToken += 1;
+        var token = filterToken;
+
+        if (!query) {
+          // 恢复显示也分片，防止一帧卡死
+          var i = 0;
+          function showChunk() {
+            if (token !== filterToken) return;
+            var end = Math.min(i + CHUNK, total);
+            for (; i < end; i++) items[i].hidden = false;
+            if (i < total) {
+              requestAnimationFrame(showChunk);
+            } else {
+              if (countEl) countEl.textContent = '';
+              if (emptyEl) emptyEl.hidden = true;
+            }
+          }
+          showChunk();
+          return;
+        }
+
+        var matched = 0;
+        var i = 0;
+        function filterChunk() {
+          if (token !== filterToken) return;
+          var end = Math.min(i + CHUNK, total);
+          for (; i < end; i++) {
+            var li = items[i];
+            var num = li.getAttribute('data-n') || '';
+            // 标题在 a 文本里，去掉章号 span 后比对
+            var a = li.firstElementChild;
+            var title = a ? (a.textContent || '') : '';
+            // textContent 含章号，额外用 data 不够时用 includes 即可
+            var hit = num.indexOf(query) !== -1 || title.toLowerCase().indexOf(query) !== -1;
+            li.hidden = !hit;
+            if (hit) matched += 1;
+          }
+          if (i < total) {
+            requestAnimationFrame(filterChunk);
+          } else {
+            if (countEl) countEl.textContent = matched + ' / ' + total + ' 章';
+            if (emptyEl) emptyEl.hidden = matched !== 0;
+          }
+        }
+        filterChunk();
+      }
+
+      // —— 滚动 UI：合并 rAF，不做重计算 ——
       var shown = false;
-      var HIDE_THRESHOLD = 240;      // 向下滑动超过此距离才显示
-      var SHOW_DELTA = 4;            // 连续向下滑动的最小位移
       var hideTimer = null;
+      var lastY = window.scrollY || 0;
+      var scrollRaf = 0;
+      var BACK_THRESHOLD = 400;
+      var backShown = false;
 
-      function show() {
-        if (shown) return;
+      function showIsland() {
+        if (!island || shown) return;
         shown = true;
         island.classList.add('is-visible');
         island.setAttribute('aria-hidden', 'false');
       }
-      function hide() {
-        if (!shown) return;
+      function hideIsland() {
+        if (!island || !shown) return;
         shown = false;
         island.classList.remove('is-visible');
         island.classList.remove('is-focused');
         island.setAttribute('aria-hidden', 'true');
       }
-
-      function onScroll() {
-        var y = window.scrollY;
-        var delta = y - lastY;
-        lastY = y;
-        // 向下滑动且超过阈值 → 显示
-        if (delta > SHOW_DELTA && y > HIDE_THRESHOLD) {
-          show();
-          if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-          // 3 秒无操作自动收回(未聚焦时)
-          hideTimer = setTimeout(function() {
-            if (document.activeElement !== input) hide();
-          }, 3000);
-        } else if (delta < -SHOW_DELTA && document.activeElement !== input) {
-          // 明显向上滑动 → 隐藏
-          hide();
-          if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-        }
+      function showBack() {
+        if (!backBtn || backShown) return;
+        backShown = true;
+        backBtn.hidden = false;
+        backBtn.offsetWidth;
+        backBtn.classList.add('is-visible');
+      }
+      function hideBack() {
+        if (!backBtn || !backShown) return;
+        backShown = false;
+        backBtn.classList.remove('is-visible');
+        setTimeout(function() { if (!backShown && backBtn) backBtn.hidden = true; }, 280);
       }
 
-      window.addEventListener('scroll', onScroll, { passive: true });
-
-      input.addEventListener('focus', function() {
-        island.classList.add('is-focused');
-        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
-      });
-      input.addEventListener('blur', function() {
-        island.classList.remove('is-focused');
-        if (!input.value) hide();
-      });
-
-      function filter() {
-        var q = String(input.value || '').trim().toLowerCase();
-        if (!q) {
-          items.forEach(function(li) { li.style.display = ''; });
-          countEl.textContent = '';
-          emptyEl.hidden = true;
-          return;
-        }
-        var matched = 0;
-        items.forEach(function(li) {
-          var num = String(li.getAttribute('data-chapter-number') || '');
-          var title = String(li.getAttribute('data-chapter-title') || '').toLowerCase();
-          var hit = num.indexOf(q) !== -1 || title.indexOf(q) !== -1;
-          li.style.display = hit ? '' : 'none';
-          if (hit) matched++;
+      window.addEventListener('scroll', function() {
+        if (scrollRaf) return;
+        scrollRaf = requestAnimationFrame(function() {
+          scrollRaf = 0;
+          var y = window.scrollY || 0;
+          var delta = y - lastY;
+          lastY = y;
+          if (island && input) {
+            if (delta > 4 && y > 240) {
+              showIsland();
+              if (hideTimer) clearTimeout(hideTimer);
+              hideTimer = setTimeout(function() {
+                if (document.activeElement !== input) hideIsland();
+              }, 3000);
+            } else if (delta < -4 && document.activeElement !== input) {
+              hideIsland();
+              if (hideTimer) clearTimeout(hideTimer);
+            }
+          }
+          if (y > BACK_THRESHOLD) showBack();
+          else hideBack();
         });
-        countEl.textContent = matched + ' / ' + total + ' 章';
-        emptyEl.hidden = matched !== 0;
+      }, { passive: true });
+
+      if (input && form) {
+        input.addEventListener('focus', function() {
+          if (island) island.classList.add('is-focused');
+          if (hideTimer) clearTimeout(hideTimer);
+        });
+        input.addEventListener('blur', function() {
+          if (island) island.classList.remove('is-focused');
+          if (!input.value) hideIsland();
+        });
+        input.addEventListener('input', function() {
+          if (filterTimer) clearTimeout(filterTimer);
+          filterTimer = setTimeout(function() { applyFilter(input.value); }, 120);
+        });
+        form.addEventListener('reset', function() {
+          setTimeout(function() {
+            applyFilter('');
+            input.focus();
+          }, 0);
+        });
+        if (clearBtn) {
+          clearBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            input.value = '';
+            applyFilter('');
+            input.focus();
+          });
+        }
       }
 
-      input.addEventListener('input', filter);
-      form.addEventListener('reset', function() {
-        setTimeout(function() {
-          filter();
-          input.focus();
-        }, 0);
-      });
-      clearBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        input.value = '';
-        filter();
-        input.focus();
-      });
-
-      // 返回顶部按钮:滚动超过一屏后显示,点击平滑回到顶部
-      var backBtn = document.getElementById('back-to-top');
       if (backBtn) {
-        var BACK_THRESHOLD = 400;
-        var backShown = false;
-        function showBack() {
-          if (backShown) return;
-          backShown = true;
-          backBtn.hidden = false;
-          // 触发重排以启用过渡
-          backBtn.offsetWidth;
-          backBtn.classList.add('is-visible');
-        }
-        function hideBack() {
-          if (!backShown) return;
-          backShown = false;
-          backBtn.classList.remove('is-visible');
-          // 等过渡结束再隐藏,避免突兀
-          setTimeout(function() { if (!backShown) backBtn.hidden = true; }, 280);
-        }
         backBtn.addEventListener('click', function() {
           window.scrollTo({ top: 0, behavior: 'smooth' });
         });
-        // 复用上面 onScroll 的滚动事件:在已有监听里追加判定
-        // 为避免拆改原函数,这里独立监听(被动)
-        window.addEventListener('scroll', function() {
-          if (window.scrollY > BACK_THRESHOLD) showBack();
-          else hideBack();
-        }, { passive: true });
       }
     })();
   </script>

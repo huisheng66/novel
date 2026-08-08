@@ -2,16 +2,28 @@
 
 const crypto = require('crypto');
 const { pool } = require('../../../db');
+const cache = require('../../../lib/memoryCache');
+
+const NOVELS_CACHE_KEY = 'admin:novels:list';
+const NOVELS_CACHE_TTL_MS = 15 * 1000;
 
 async function getNovels() {
+  const cached = cache.get(NOVELS_CACHE_KEY);
+  if (cached) return cached;
+
+  // 相关子查询走 uk_novel_chapter 索引，避免 JOIN 大表再 GROUP BY
   const [novels] = await pool.execute(
-    `SELECT n.id, n.title, n.author, n.description, n.cover_image, COUNT(c.id) AS chapter_count
+    `SELECT n.id, n.title, n.author, n.description, n.cover_image,
+            (SELECT COUNT(*) FROM chapters c WHERE c.novel_id = n.id) AS chapter_count
      FROM novels n
-     LEFT JOIN chapters c ON c.novel_id = n.id
-     GROUP BY n.id, n.title, n.author, n.description, n.cover_image
      ORDER BY n.id ASC`
   );
+  cache.set(NOVELS_CACHE_KEY, novels, NOVELS_CACHE_TTL_MS);
   return novels;
+}
+
+function clearNovelsCache() {
+  cache.clear(NOVELS_CACHE_KEY);
 }
 
 async function getCurrentNovel(novelId) {
@@ -68,9 +80,10 @@ async function getChaptersPage(novelId, { page = 1, pageSize = 80, chapterId = n
   currentPage = Math.min(currentPage, totalPages);
   const offset = (currentPage - 1) * size;
 
+  // 列表不读 content / CHAR_LENGTH(content)：LONGTEXT 会拖垮后台翻页与首屏
   // LIMIT/OFFSET 内联整数，避免部分 mysql2 对占位符 LIMIT 的兼容问题
   const [chapters] = await pool.execute(
-    `SELECT id, chapter_number, title, CHAR_LENGTH(content) AS content_length, created_at
+    `SELECT id, chapter_number, title, created_at
      FROM chapters
      WHERE novel_id = ?
      ORDER BY chapter_number ASC
@@ -93,6 +106,7 @@ function generateAccessToken() {
 
 module.exports = {
   getNovels,
+  clearNovelsCache,
   getCurrentNovel,
   nextChapterNumber,
   getChaptersPage,

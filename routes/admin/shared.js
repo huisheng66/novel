@@ -46,6 +46,7 @@ module.exports = {
 
   // DB
   getNovels: novels.getNovels,
+  clearNovelsCache: novels.clearNovelsCache,
   getCurrentNovel: novels.getCurrentNovel,
   nextChapterNumber: novels.nextChapterNumber,
   getChaptersPage: novels.getChaptersPage,

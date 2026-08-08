@@ -18,12 +18,18 @@ router.use(authenticateToken);
 router.use(recordPageView);
 router.use(sourceRoutes);
 
+function sendHtml(res, html, cacheStatus) {
+  // 登录态页面：允许浏览器短缓存，回退/前进更顺；CDN 仍因 Cookie 通常不缓存
+  res.set('Cache-Control', 'private, max-age=60, stale-while-revalidate=120');
+  res.set('X-Cache', cacheStatus);
+  res.type('html');
+  res.send(html);
+}
+
 function sendCachedHtml(res, cacheKey) {
   const html = cache.get(cacheKey);
   if (!html) return false;
-
-  res.set('X-Cache', 'HIT');
-  res.send(html);
+  sendHtml(res, html, 'HIT');
   return true;
 }
 
@@ -32,8 +38,7 @@ function renderAndCache(req, res, next, cacheKey, view, data) {
     if (err) return next(err);
 
     cache.set(cacheKey, html);
-    res.set('X-Cache', 'MISS');
-    res.send(html);
+    sendHtml(res, html, 'MISS');
   });
 }
 
@@ -61,12 +66,12 @@ router.get('/', async (req, res, next) => {
       params.push(allowedNovelId);
     }
 
+    // 相关子查询走章节索引，避免 JOIN 全表再 GROUP BY（书多章时首页更稳）
     const [novels] = await pool.execute(
-      `SELECT n.id, n.title, n.description, n.cover_image, COUNT(c.id) AS chapter_count
+      `SELECT n.id, n.title, n.description, n.cover_image,
+              (SELECT COUNT(*) FROM chapters c WHERE c.novel_id = n.id) AS chapter_count
        FROM novels n
-       LEFT JOIN chapters c ON c.novel_id = n.id
        ${whereClause}
-       GROUP BY n.id, n.title, n.description, n.cover_image
        ORDER BY n.id ASC`,
       params
     );
@@ -88,8 +93,9 @@ router.get('/novel/:id', async (req, res, next) => {
     );
     if (!novel) return res.status(404).render('404', { url: req.originalUrl });
 
+    // 目录页只要编号+标题，少传字段减轻序列化与 HTML 体积
     const [chapters] = await pool.execute(
-      'SELECT id, chapter_number, title, created_at FROM chapters WHERE novel_id = ? ORDER BY chapter_number ASC',
+      'SELECT chapter_number, title FROM chapters WHERE novel_id = ? ORDER BY chapter_number ASC',
       [req.params.id]
     );
 
@@ -103,36 +109,46 @@ router.get('/novel/:id/:chapterNum', async (req, res, next) => {
   try {
     const { id, chapterNum } = req.params;
 
-    const [[novel]] = await pool.execute(
-      'SELECT id, title, description, cover_image FROM novels WHERE id = ?',
-      [id]
-    );
+    // 缓存键用 novelId+章号：命中时不必先读 LONGTEXT
+    const cacheKey = `html:chapter:v4:${id}:${chapterNum}`;
+    if (sendCachedHtml(res, cacheKey)) return;
+
+    // 未命中：小说元信息 / 正文 / 上下章并行查询
+    const [[novelRows], [chapterRows], [prevRows], [nextRows]] = await Promise.all([
+      pool.execute(
+        'SELECT id, title, description, cover_image FROM novels WHERE id = ?',
+        [id]
+      ),
+      pool.execute(
+        'SELECT id, chapter_number, title, content FROM chapters WHERE novel_id = ? AND chapter_number = ?',
+        [id, chapterNum]
+      ),
+      pool.execute(
+        'SELECT chapter_number, title FROM chapters WHERE novel_id = ? AND chapter_number < ? ORDER BY chapter_number DESC LIMIT 1',
+        [id, chapterNum]
+      ),
+      pool.execute(
+        'SELECT chapter_number, title FROM chapters WHERE novel_id = ? AND chapter_number > ? ORDER BY chapter_number ASC LIMIT 1',
+        [id, chapterNum]
+      )
+    ]);
+
+    const novel = novelRows[0];
     if (!novel) return res.status(404).render('404', { url: req.originalUrl });
 
-    const [[chapter]] = await pool.execute(
-      'SELECT id, chapter_number, title, content FROM chapters WHERE novel_id = ? AND chapter_number = ?',
-      [id, chapterNum]
-    );
+    const chapter = chapterRows[0];
     if (!chapter) return res.status(404).render('404', { url: req.originalUrl });
-
-    // v3: 阅读模式优化后的章节 HTML；以 chapter.id 为主键
-    const cacheKey = `html:chapter:v3:${chapter.id}`;
-    if (sendCachedHtml(res, cacheKey)) return;
 
     chapter.paragraphs = splitParagraphs(chapter);
     chapter.readerTitle = buildReaderChapterTitle(chapter.chapter_number, chapter.title);
 
-    const [[prevChapter]] = await pool.execute(
-      'SELECT chapter_number, title FROM chapters WHERE novel_id = ? AND chapter_number < ? ORDER BY chapter_number DESC LIMIT 1',
-      [id, chapterNum]
-    );
-
-    const [[nextChapter]] = await pool.execute(
-      'SELECT chapter_number, title FROM chapters WHERE novel_id = ? AND chapter_number > ? ORDER BY chapter_number ASC LIMIT 1',
-      [id, chapterNum]
-    );
-
-    renderAndCache(req, res, next, cacheKey, 'chapter', { novel, chapter, prevChapter, nextChapter, baseUrl: getBaseUrl(req) });
+    renderAndCache(req, res, next, cacheKey, 'chapter', {
+      novel,
+      chapter,
+      prevChapter: prevRows[0] || null,
+      nextChapter: nextRows[0] || null,
+      baseUrl: getBaseUrl(req)
+    });
   } catch (err) {
     next(err);
   }

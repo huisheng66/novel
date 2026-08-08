@@ -43,6 +43,12 @@ a:hover { opacity: 0.7; }
   flex: 0 0 auto;
   font-size: 0.8125rem;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  padding: 0.35rem 0.15rem 0.35rem 0.5rem;
+  min-height: 2rem;
+  display: inline-flex;
+  align-items: center;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 .site-name { font-weight: 600; color: var(--text); font-size: 0.9375rem; }
 .site-name:hover { opacity: 0.6; }
@@ -82,6 +88,13 @@ main {
   max-width: 32em;
 }
 
+.novel-chapter-total {
+  margin-top: 0.45rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
 .novel-meta-with-cover {
   display: grid;
   grid-template-columns: 8rem minmax(0, 1fr);
@@ -102,7 +115,7 @@ main {
   display: block;
 }
 
-/* Chapter list */
+/* Chapter list — 全量 DOM + 屏外跳过布局/绘制 */
 .chapter-list h2 {
   font-size: 0.8125rem;
   font-weight: 600;
@@ -112,26 +125,32 @@ main {
   margin-bottom: 1rem;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
-.chapter-list ol {
+.chapter-list ol,
+.chapter-list-ol {
   list-style: none;
+  /* 整表建立独立包含块，滚动/筛选时减少向上污染 */
+  contain: content;
 }
 .chapter-list li {
   border-bottom: 1px solid var(--border);
-  /* 长目录（2000+ 章）避免一次布局全部 DOM，减轻手机端卡死 */
+  /* 关键：全量节点在，屏外章节几乎不布局/不绘制 */
   content-visibility: auto;
-  contain-intrinsic-size: auto 2.6rem;
+  contain-intrinsic-size: auto 2.75rem;
+}
+.chapter-list li[hidden] {
+  display: none;
 }
 .chapter-list li a {
   display: flex;
   align-items: baseline;
   padding: 0.6rem 0;
   font-size: 1rem;
-  /* 长标题（带卷名前缀）不把点击区域撑破 */
   overflow-wrap: anywhere;
   word-break: break-word;
 }
 .ch-num {
   display: inline-block;
+  flex: 0 0 auto;
   font-size: 0.6875rem;
   color: #ccc;
   margin-right: 1rem;
@@ -140,20 +159,6 @@ main {
   font-variant-numeric: tabular-nums;
   text-align: left;
 }
-.chapter-load-more {
-  display: block;
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.7rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--code-bg);
-  color: var(--muted);
-  font-size: 0.875rem;
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-  cursor: pointer;
-}
-.chapter-load-more:hover { color: var(--accent); border-color: var(--accent); }
 
 .library-list {
   display: grid;

@@ -7,7 +7,8 @@ const pageViewQueue = require('../../lib/pageViewQueue');
 const { parsePositiveInt } = require('../../lib/util');
 const logger = require('../../lib/logger');
 
-const ACCESS_TOKEN_CACHE_TTL_MS = 5000;
+// Token 鉴权内存缓存：过短会导致几乎每请求打 DB
+const ACCESS_TOKEN_CACHE_TTL_MS = parsePositiveInt(process.env.ACCESS_TOKEN_CACHE_TTL_MS, 120000);
 const RISK_WINDOW_MINUTES = parsePositiveInt(process.env.RISK_WINDOW_MINUTES, 5);
 const RISK_CHAPTER_LIMIT = parsePositiveInt(process.env.RISK_CHAPTER_LIMIT, 75);
 const RISK_PAUSE_HOURS = parsePositiveInt(process.env.RISK_PAUSE_HOURS, 1);
@@ -51,24 +52,44 @@ function getClientIp(req) {
 }
 
 function getSessionId(req) {
-  const value = String(req.headers.cookie || '')
-    .split(';')
-    .map(part => part.trim())
-    .find(part => part.startsWith('visitor_session='));
-
-  if (value) return value.slice('visitor_session='.length).slice(0, 64);
-
+  const existing = readCookie(req, 'visitor_session').slice(0, 64);
+  if (existing) return existing;
   return crypto.randomBytes(12).toString('hex');
 }
 
-function getVisitorUid(req) {
-  const value = String(req.headers.cookie || '')
+const COOKIE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+const ACCESS_COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  maxAge: COOKIE_YEAR_MS,
+  path: '/'
+};
+
+function readCookie(req, name) {
+  const prefix = `${name}=`;
+  const part = String(req.headers.cookie || '')
     .split(';')
-    .map(part => part.trim())
-    .find(part => part.startsWith('visitor_uid='));
+    .map(item => item.trim())
+    .find(item => item.startsWith(prefix));
+  if (!part) return '';
+  const raw = part.slice(prefix.length);
+  try {
+    return decodeURIComponent(raw).slice(0, 128);
+  } catch (err) {
+    return raw.slice(0, 128);
+  }
+}
 
-  if (value) return value.slice('visitor_uid='.length).slice(0, 64);
+function setCookieIfAbsentOrChanged(req, res, name, value, options) {
+  const current = readCookie(req, name);
+  if (current && current === value) return false;
+  res.cookie(name, value, options);
+  return true;
+}
 
+function getVisitorUid(req) {
+  const existing = readCookie(req, 'visitor_uid').slice(0, 64);
+  if (existing) return existing;
   return crypto.randomBytes(12).toString('hex');
 }
 
@@ -190,12 +211,7 @@ async function getActiveAccessTokenId(req, res) {
       sendRiskPaused(res, pausedUntil);
       return null;
     }
-    res.cookie('access_token', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 365 * 24 * 60 * 60 * 1000,
-      path: '/'
-    });
+    setCookieIfAbsentOrChanged(req, res, 'access_token', token, ACCESS_COOKIE_OPTS);
     return cachedAccessToken.id;
   }
 
@@ -227,12 +243,7 @@ async function getActiveAccessTokenId(req, res) {
       sendRiskPaused(res, row.paused_until);
       return null;
     }
-    res.cookie('access_token', token, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 365 * 24 * 60 * 60 * 1000,
-      path: '/'
-    });
+    setCookieIfAbsentOrChanged(req, res, 'access_token', token, ACCESS_COOKIE_OPTS);
     return row.id;
   }
   if (row.paused_until) {
@@ -256,12 +267,7 @@ async function getActiveAccessTokenId(req, res) {
     sendRiskPaused(res, pausedUntil);
     return null;
   }
-  res.cookie('access_token', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    maxAge: 365 * 24 * 60 * 60 * 1000,
-    path: '/'
-  });
+  setCookieIfAbsentOrChanged(req, res, 'access_token', token, ACCESS_COOKIE_OPTS);
   return row.id;
 }
 
@@ -400,6 +406,8 @@ async function recordPageView(req, res, next) {
     }
 
     const pathname = req.path || req.originalUrl || '/';
+    const hadUid = Boolean(readCookie(req, 'visitor_uid'));
+    const hadSession = Boolean(readCookie(req, 'visitor_session'));
     const visitorUid = getVisitorUid(req);
     const sessionId = getSessionId(req);
     const visitorIp = getClientIp(req);
@@ -407,18 +415,13 @@ async function recordPageView(req, res, next) {
     const referrer = String(req.headers.referer || req.headers.referrer || '').slice(0, 255) || null;
     const { novelId, chapterId } = parseNovelAndChapter(pathname);
 
-    res.cookie('visitor_uid', visitorUid, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 365 * 24 * 60 * 60 * 1000,
-      path: '/'
-    });
-    res.cookie('visitor_session', sessionId, {
-      httpOnly: true,
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 * 1000,
-      path: '/'
-    });
+    // 已有 Cookie 不再重复 Set-Cookie，减小响应头与客户端处理
+    if (!hadUid) {
+      res.cookie('visitor_uid', visitorUid, ACCESS_COOKIE_OPTS);
+    }
+    if (!hadSession) {
+      res.cookie('visitor_session', sessionId, ACCESS_COOKIE_OPTS);
+    }
 
     pageViewQueue.enqueue({
       visitorUid,
