@@ -1,10 +1,12 @@
 const express = require('express');
 const { listBooks, getBook, getToc, getTocDelta, getChapter } = require('../../../lib/api/books');
 const { requireReaderAuth, assertNovelAccess } = require('./middleware/auth');
+const { chapterRateLimit } = require('../../../lib/api/rateLimit');
 const { sendError, ApiError, badRequest } = require('../../../lib/api/errors');
 const { toPositiveInt } = require('../../../lib/util');
 
 const router = express.Router();
+const limitChapter = chapterRateLimit();
 
 function asyncRoute(handler) {
   return (req, res, next) => {
@@ -65,7 +67,7 @@ router.get('/:id/toc', asyncRoute(async (req, res) => {
   }
 }));
 
-router.get('/:id/chapters/:chapterNumber', asyncRoute(async (req, res) => {
+router.get('/:id/chapters/:chapterNumber', limitChapter, asyncRoute(async (req, res) => {
   try {
     const id = toPositiveInt(req.params.id);
     const chapterNumber = toPositiveInt(req.params.chapterNumber);

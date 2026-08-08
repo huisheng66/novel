@@ -29,6 +29,7 @@ API 版本响应头: `X-API-Version: 1`
 | `NOT_FOUND` | 404 | 资源不存在 |
 | `CONFLICT` | 409 | 冲突（如用户名占用） |
 | `REGISTER_DISABLED` | 403 | 关闭注册 |
+| `RATE_LIMITED` | 429 | 触发限流（见 `Retry-After`） |
 | `INTERNAL` | 500 | 服务器错误 |
 
 ## 鉴权
@@ -290,6 +291,69 @@ Body:
 - 若客户端时间 **不晚于** 服务端：不覆盖，返回服务端权威副本 + `"applied": false`  
 - 否则写入并 `"applied": true`
 
+### `POST /me/progress/batch`（第 3 期）
+
+离线队列批量上报。单条失败不中断整批。
+
+- 最多 **50** 条 / 请求  
+- 每条规则同 `PUT /me/progress`（LWW）  
+- 限流：默认 60 次/分钟/IP+用户（可配）
+
+```json
+{
+  "items": [
+    {
+      "novelId": 10,
+      "chapterNumber": 120,
+      "offsetRatio": 0.37,
+      "updatedAt": "2026-08-08T12:00:00.000Z",
+      "deviceName": "Pixel"
+    },
+    {
+      "novelId": 11,
+      "chapterNumber": 3,
+      "offsetRatio": 0.1,
+      "updatedAt": "2026-08-08T11:00:00.000Z",
+      "deviceName": "Pixel"
+    }
+  ]
+}
+```
+
+响应：
+
+```json
+{
+  "appliedCount": 1,
+  "skippedCount": 0,
+  "errorCount": 1,
+  "serverTime": "…",
+  "results": [
+    { "novelId": 10, "applied": true, "progress": { "…": "…" } },
+    { "novelId": 11, "applied": false, "error": { "code": "NOT_FOUND", "message": "Chapter not found" } }
+  ]
+}
+```
+
+### 客户端离线队列约定（第 3 期）
+
+1. 本地先写进度（SQLite / localStorage）  
+2. 联网后按 `updatedAt` 排序，`POST /me/progress/batch` 分批 flush（≤50）  
+3. `applied: true` 或 `applied: false`（LWW 被拒）均可从队列移除该条  
+4. 仅 `error` 且可恢复（网络/5xx）时保留重试；`NOT_FOUND` 可丢弃或标脏  
+5. 正文缓存策略（App）：按 `contentHash` / ETag 存盘；清缓存不删进度  
+
+## 限流（第 3 期）
+
+| 范围 | 默认 | 环境变量 |
+|------|------|----------|
+| register / login / refresh | 30 次 / 15 分钟 / IP | `API_RATE_LIMIT_AUTH_MAX` / `…_WINDOW_MS` |
+| 章节正文 GET | 180 次 / 分钟 / 用户+IP | `API_RATE_LIMIT_CHAPTER_MAX` / `…_WINDOW_MS` |
+| progress batch | 60 次 / 分钟 / 用户+IP | `API_RATE_LIMIT_PROGRESS_BATCH_MAX` / `…_WINDOW_MS` |
+
+触发时 HTTP **429**，`Retry-After` 秒，`error.code = RATE_LIMITED`。  
+说明：单机内存窗口；多实例各自计数（后续可换 Redis）。
+
 ## 章节 ID 约定
 
 - `chapterNumber`：书内顺序号，与 Web `/novel/:id/:chapterNum` 一致；进度默认绑此字段  
@@ -302,7 +366,7 @@ Body:
 |------|----|
 | auth / books / toc 分页 / chapter / shelf / progress | 1（已完成） |
 | toc delta / shelf updates / ETag 强化 / Web 进度可选同步 | 2（已完成） |
-| progress batch / 离线队列 | 3 |
+| progress batch / 限流 / 运维文档 | 3（已完成） |
 | 推送 / 笔记云 / AI | 4 |
 
 ## 与 Web / Legado
@@ -327,4 +391,12 @@ JWT_ACCESS_SECRET=
 JWT_ACCESS_TTL_SEC=7200
 JWT_REFRESH_TTL_DAYS=30
 API_REGISTER_ENABLED=true
+API_RATE_LIMIT_AUTH_MAX=30
+API_RATE_LIMIT_AUTH_WINDOW_MS=900000
+API_RATE_LIMIT_CHAPTER_MAX=180
+API_RATE_LIMIT_CHAPTER_WINDOW_MS=60000
+API_RATE_LIMIT_PROGRESS_BATCH_MAX=60
+API_RATE_LIMIT_PROGRESS_BATCH_WINDOW_MS=60000
 ```
+
+生产备份与 SCHEMA 迁移见 [api-ops.md](./api-ops.md)。

@@ -5,9 +5,11 @@ const {
   refreshSession,
   logoutSession
 } = require('../../../lib/api/users');
+const { authRateLimit } = require('../../../lib/api/rateLimit');
 const { sendError, ApiError } = require('../../../lib/api/errors');
 
 const router = express.Router();
+const limitAuth = authRateLimit();
 
 function asyncRoute(handler) {
   return (req, res, next) => {
@@ -22,7 +24,7 @@ function clientMeta(req) {
   };
 }
 
-router.post('/register', asyncRoute(async (req, res) => {
+router.post('/register', limitAuth, asyncRoute(async (req, res) => {
   try {
     const result = await registerUser({
       username: req.body.username,
@@ -37,7 +39,7 @@ router.post('/register', asyncRoute(async (req, res) => {
   }
 }));
 
-router.post('/login', asyncRoute(async (req, res) => {
+router.post('/login', limitAuth, asyncRoute(async (req, res) => {
   try {
     const result = await loginUser({
       username: req.body.username,
@@ -51,7 +53,7 @@ router.post('/login', asyncRoute(async (req, res) => {
   }
 }));
 
-router.post('/refresh', asyncRoute(async (req, res) => {
+router.post('/refresh', limitAuth, asyncRoute(async (req, res) => {
   try {
     const result = await refreshSession(req.body.refreshToken, clientMeta(req));
     res.json(result);

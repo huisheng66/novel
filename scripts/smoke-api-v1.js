@@ -134,6 +134,44 @@ async function main() {
   assert(Number(older.data.progress.offsetRatio) === 0.42, 'LWW kept wrong offset');
   console.log('OK progress LWW');
 
+  // progress batch（第 3 期）
+  const batch = await req('POST', '/api/v1/me/progress/batch', {
+    token: access,
+    body: {
+      items: [
+        {
+          novelId: bookId,
+          chapterNumber,
+          offsetRatio: 0.55,
+          updatedAt: new Date().toISOString(),
+          deviceName: 'smoke-batch'
+        },
+        {
+          novelId: 99999999,
+          chapterNumber: 1,
+          offsetRatio: 0.1,
+          updatedAt: new Date().toISOString(),
+          deviceName: 'smoke-batch'
+        }
+      ]
+    }
+  });
+  assert(batch.status === 200, `batch failed: ${JSON.stringify(batch.data)}`);
+  assert(batch.data.appliedCount >= 1, 'batch appliedCount');
+  assert(batch.data.errorCount >= 1, 'batch should report missing book error');
+  assert(Array.isArray(batch.data.results) && batch.data.results.length === 2, 'batch results length');
+  console.log('OK progress batch', {
+    applied: batch.data.appliedCount,
+    errors: batch.data.errorCount
+  });
+
+  const emptyBatch = await req('POST', '/api/v1/me/progress/batch', {
+    token: access,
+    body: { items: [] }
+  });
+  assert(emptyBatch.status === 400, 'empty batch should 400');
+  console.log('OK progress batch empty rejected');
+
   const shelf = await req('GET', '/api/v1/me/shelf', { token: access });
   assert(shelf.status === 200 && shelf.data.items.some(i => i.novelId === bookId), 'shelf list failed');
   console.log('OK shelf list');
@@ -159,7 +197,7 @@ async function main() {
   await req('POST', '/api/v1/auth/logout', { body: { refreshToken: refreshed.data.refreshToken } });
   console.log('OK logout');
 
-  console.log('\nAll smoke-api-v1 checks passed (phase 0-2).');
+  console.log('\nAll smoke-api-v1 checks passed (phase 0-3).');
 }
 
 main().catch(err => {
