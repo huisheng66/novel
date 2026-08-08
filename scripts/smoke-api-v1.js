@@ -67,7 +67,40 @@ async function main() {
 
   const chapter = await req('GET', `/api/v1/books/${bookId}/chapters/${chapterNumber}`, { token: access });
   assert(chapter.status === 200 && chapter.data.content, 'chapter failed');
-  console.log('OK chapter', { title: chapter.data.title, hash: chapter.data.contentHash && chapter.data.contentHash.slice(0, 8) });
+  const contentHash = chapter.data.contentHash;
+  console.log('OK chapter', { title: chapter.data.title, hash: contentHash && contentHash.slice(0, 8) });
+
+  // ETag / If-None-Match（第 2 期）
+  const etagRes = await fetch(`${base}/api/v1/books/${bookId}/chapters/${chapterNumber}`, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${access}`,
+      'If-None-Match': `"${contentHash}"`
+    }
+  });
+  assert(etagRes.status === 304, `etag 304 expected, got ${etagRes.status}`);
+  console.log('OK chapter etag 304');
+
+  const weakEtag = await fetch(`${base}/api/v1/books/${bookId}/chapters/${chapterNumber}`, {
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${access}`,
+      'If-None-Match': `W/"${contentHash}"`
+    }
+  });
+  assert(weakEtag.status === 304, `weak etag 304 expected, got ${weakEtag.status}`);
+  console.log('OK chapter weak etag 304');
+
+  // TOC delta
+  const past = new Date(Date.now() - 365 * 24 * 3600 * 1000).toISOString();
+  const delta = await req('GET', `/api/v1/books/${bookId}/toc/delta?since=${encodeURIComponent(past)}&limit=20`, { token: access });
+  assert(delta.status === 200 && Array.isArray(delta.data.items), `toc delta failed: ${JSON.stringify(delta.data)}`);
+  assert(delta.data.serverTime && delta.data.since, 'toc delta missing timestamps');
+  console.log('OK toc delta', { totalChanged: delta.data.totalChanged, items: delta.data.items.length });
+
+  const badDelta = await req('GET', `/api/v1/books/${bookId}/toc/delta`, { token: access });
+  assert(badDelta.status === 400, 'toc delta should require since');
+  console.log('OK toc delta requires since');
 
   const shelfAdd = await req('POST', '/api/v1/me/shelf', { token: access, body: { novelId: bookId } });
   assert(shelfAdd.status === 201, 'shelf add failed');
@@ -105,6 +138,19 @@ async function main() {
   assert(shelf.status === 200 && shelf.data.items.some(i => i.novelId === bookId), 'shelf list failed');
   console.log('OK shelf list');
 
+  // shelf updates（since 很早 → 至少能返回结构；有进度落后时会有 hasUpdate 项）
+  const updates = await req(
+    'GET',
+    `/api/v1/me/shelf/updates?since=${encodeURIComponent(past)}`,
+    { token: access }
+  );
+  assert(updates.status === 200 && Array.isArray(updates.data.items), `shelf updates failed: ${JSON.stringify(updates.data)}`);
+  console.log('OK shelf updates', { count: updates.data.items.length });
+
+  const badUpdates = await req('GET', '/api/v1/me/shelf/updates', { token: access });
+  assert(badUpdates.status === 400, 'shelf updates should require since');
+  console.log('OK shelf updates requires since');
+
   const refreshed = await req('POST', '/api/v1/auth/refresh', { body: { refreshToken: refresh } });
   assert(refreshed.status === 200 && refreshed.data.accessToken, 'refresh failed');
   access = refreshed.data.accessToken;
@@ -113,7 +159,7 @@ async function main() {
   await req('POST', '/api/v1/auth/logout', { body: { refreshToken: refreshed.data.refreshToken } });
   console.log('OK logout');
 
-  console.log('\nAll smoke-api-v1 checks passed.');
+  console.log('\nAll smoke-api-v1 checks passed (phase 0-2).');
 }
 
 main().catch(err => {

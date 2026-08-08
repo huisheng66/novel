@@ -150,21 +150,110 @@
 
       updateThemeLabel();
 
-      var progressKey = 'reading-progress:<%= novel.id %>:<%= chapter.chapter_number %>';
-      var saved = parseFloat(localStorage.getItem(progressKey));
-      if (saved > 0) {
+      var novelId = <%= novel.id %>;
+      var chapterNumber = <%= chapter.chapter_number %>;
+      var progressKey = 'reading-progress:' + novelId + ':' + chapterNumber;
+      var progressMetaKey = 'reading-progress-meta:' + novelId;
+      var apiTokenKey = 'codexnovel_access_token';
+
+      function currentOffsetRatio() {
+        var max = document.documentElement.scrollHeight - window.innerHeight;
+        if (max <= 0) return 0;
+        return Math.min(1, Math.max(0, window.scrollY / max));
+      }
+
+      function applyOffsetRatio(ratio) {
+        var r = parseFloat(ratio);
+        if (!(r > 0)) return;
         requestAnimationFrame(function() {
           var max = document.documentElement.scrollHeight - window.innerHeight;
-          if (max > 0) window.scrollTo(0, max * saved);
+          if (max > 0) window.scrollTo(0, max * r);
         });
       }
+
+      function saveLocalProgress(ratio) {
+        localStorage.setItem(progressKey, String(ratio));
+        try {
+          localStorage.setItem(progressMetaKey, JSON.stringify({
+            chapterNumber: chapterNumber,
+            offsetRatio: ratio,
+            updatedAt: new Date().toISOString()
+          }));
+        } catch (e) { /* ignore quota */ }
+      }
+
+      function getApiToken() {
+        try { return localStorage.getItem(apiTokenKey) || ''; } catch (e) { return ''; }
+      }
+
+      function syncProgressToCloud(ratio) {
+        var token = getApiToken();
+        if (!token) return;
+        var body = {
+          novelId: novelId,
+          chapterNumber: chapterNumber,
+          offsetRatio: ratio,
+          updatedAt: new Date().toISOString(),
+          deviceName: 'web'
+        };
+        fetch('/api/v1/me/progress', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(body),
+          credentials: 'same-origin'
+        }).catch(function() { /* 离线静默 */ });
+      }
+
+      // 1) 先用本地进度
+      var saved = parseFloat(localStorage.getItem(progressKey));
+      applyOffsetRatio(saved);
+
+      // 2) 若有 App/Web JWT，拉云端进度并 LWW（同书维度）
+      (function pullCloudProgress() {
+        var token = getApiToken();
+        if (!token) return;
+        fetch('/api/v1/me/progress/' + novelId, {
+          headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
+          credentials: 'same-origin'
+        }).then(function(res) {
+          if (res.status === 404) return null;
+          if (!res.ok) return null;
+          return res.json();
+        }).then(function(data) {
+          if (!data || data.chapterNumber == null) return;
+          var localMeta = null;
+          try { localMeta = JSON.parse(localStorage.getItem(progressMetaKey) || 'null'); } catch (e) { localMeta = null; }
+          var localTs = localMeta && localMeta.updatedAt ? Date.parse(localMeta.updatedAt) : 0;
+          var cloudTs = data.updatedAt ? Date.parse(data.updatedAt) : 0;
+          if (!cloudTs) return;
+          if (localTs && localTs >= cloudTs) return;
+          // 云端更新：若同一章则滚动；若不同章仅更新 meta（不强制跳章，避免打断当前阅读）
+          try {
+            localStorage.setItem(progressMetaKey, JSON.stringify({
+              chapterNumber: data.chapterNumber,
+              offsetRatio: data.offsetRatio,
+              updatedAt: data.updatedAt
+            }));
+          } catch (e) { /* ignore */ }
+          if (Number(data.chapterNumber) === chapterNumber) {
+            applyOffsetRatio(data.offsetRatio);
+            localStorage.setItem(progressKey, String(data.offsetRatio || 0));
+          }
+        }).catch(function() { /* ignore */ });
+      })();
+
       var saveTimer = null;
       window.addEventListener('scroll', function() {
         if (saveTimer) clearTimeout(saveTimer);
         saveTimer = setTimeout(function() {
-          var max = document.documentElement.scrollHeight - window.innerHeight;
-          if (max > 0) localStorage.setItem(progressKey, String(window.scrollY / max));
-        }, 300);
+          var ratio = currentOffsetRatio();
+          saveLocalProgress(ratio);
+          syncProgressToCloud(ratio);
+        }, 400);
       }, { passive: true });
 
       document.addEventListener('keydown', function(e) {

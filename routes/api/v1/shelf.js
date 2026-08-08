@@ -1,5 +1,5 @@
 const express = require('express');
-const { listShelf, addToShelf, removeFromShelf } = require('../../../lib/api/shelf');
+const { listShelf, listShelfUpdates, addToShelf, removeFromShelf } = require('../../../lib/api/shelf');
 const { requireUser } = require('./middleware/auth');
 const { sendError, ApiError, badRequest } = require('../../../lib/api/errors');
 const { toPositiveInt } = require('../../../lib/util');
@@ -17,6 +17,18 @@ router.use(requireUser);
 router.get('/', asyncRoute(async (req, res) => {
   try {
     res.json(await listShelf(req, req.apiUser.id));
+  } catch (err) {
+    if (err instanceof ApiError) return sendError(res, err);
+    throw err;
+  }
+}));
+
+// 必须在 /:novelId 之前
+router.get('/updates', asyncRoute(async (req, res) => {
+  try {
+    const data = await listShelfUpdates(req, req.apiUser.id, { since: req.query.since });
+    res.set('Cache-Control', 'private, no-store');
+    res.json(data);
   } catch (err) {
     if (err instanceof ApiError) return sendError(res, err);
     throw err;

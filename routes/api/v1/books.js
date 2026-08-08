@@ -1,5 +1,5 @@
 const express = require('express');
-const { listBooks, getBook, getToc, getChapter } = require('../../../lib/api/books');
+const { listBooks, getBook, getToc, getTocDelta, getChapter } = require('../../../lib/api/books');
 const { requireReaderAuth, assertNovelAccess } = require('./middleware/auth');
 const { sendError, ApiError, badRequest } = require('../../../lib/api/errors');
 const { toPositiveInt } = require('../../../lib/util');
@@ -29,13 +29,19 @@ router.get('/', asyncRoute(async (req, res) => {
   }
 }));
 
-router.get('/:id', asyncRoute(async (req, res) => {
+// 更具体的路径放在 /:id 之前，避免被吞
+router.get('/:id/toc/delta', asyncRoute(async (req, res) => {
   try {
     const id = toPositiveInt(req.params.id);
     if (!id) throw badRequest('Invalid id');
     assertNovelAccess(req, id);
-    const book = await getBook(req, id, req.allowedNovelId || null);
-    res.json(book);
+    const delta = await getTocDelta(req, id, {
+      since: req.query.since,
+      limit: toPositiveInt(req.query.limit) || 500,
+      allowedNovelId: req.allowedNovelId || null
+    });
+    res.set('Cache-Control', 'private, no-store');
+    res.json(delta);
   } catch (err) {
     if (err instanceof ApiError) return sendError(res, err);
     throw err;
@@ -73,6 +79,19 @@ router.get('/:id/chapters/:chapterNumber', asyncRoute(async (req, res) => {
     res.set('Cache-Control', 'private, max-age=60');
     if (result.notModified) return res.status(304).end();
     res.json(result.body);
+  } catch (err) {
+    if (err instanceof ApiError) return sendError(res, err);
+    throw err;
+  }
+}));
+
+router.get('/:id', asyncRoute(async (req, res) => {
+  try {
+    const id = toPositiveInt(req.params.id);
+    if (!id) throw badRequest('Invalid id');
+    assertNovelAccess(req, id);
+    const book = await getBook(req, id, req.allowedNovelId || null);
+    res.json(book);
   } catch (err) {
     if (err instanceof ApiError) return sendError(res, err);
     throw err;

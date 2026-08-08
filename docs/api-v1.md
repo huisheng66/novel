@@ -149,6 +149,37 @@ Body:
 }
 ```
 
+### `GET /books/:id/toc/delta?since=&limit=500`（第 2 期）
+
+增量目录：返回 `updated_at > since` 的章节元数据（新建 + 修文）。
+
+- `since`：**必填**，ISO-8601  
+- `limit`：默认 500，最大 2000；超出时 `truncated: true`
+
+```json
+{
+  "novelId": 10,
+  "since": "2026-08-01T00:00:00.000Z",
+  "serverTime": "2026-08-08T12:00:00.000Z",
+  "lastChapterNumber": 2284,
+  "lastChapterTitle": "…",
+  "novelUpdatedAt": "…",
+  "truncated": false,
+  "totalChanged": 5,
+  "items": [
+    {
+      "id": 9010,
+      "chapterNumber": 2280,
+      "title": "…",
+      "contentHash": "…",
+      "updatedAt": "…"
+    }
+  ]
+}
+```
+
+客户端应用：本地 TOC 合并 `items`；下次 `since` 用本次 `serverTime`（或本批最大 `updatedAt`）。
+
 ### `GET /books/:id/chapters/:chapterNumber`
 
 ```json
@@ -166,8 +197,8 @@ Body:
 }
 ```
 
-可选响应头：`ETag: "<contentHash>"`。  
-若请求带 `If-None-Match` 且匹配，返回 `304`。
+响应头：`ETag: "<contentHash>"`，`Cache-Control: private, max-age=60`。  
+`If-None-Match` 支持：`"hash"`、`W/"hash"`、裸 hash、多值逗号分隔；匹配则 **304**。
 
 ## 书架
 
@@ -198,7 +229,35 @@ Body:
 }
 ```
 
-`hasUpdate`：有进度时，若 `lastChapterNumber > progress.chapterNumber` 则为 true；无进度时为 false（一期简化）。
+`hasUpdate`：有进度时，若 `lastChapterNumber > progress.chapterNumber` 则为 true。
+
+### `GET /me/shelf/updates?since=`（第 2 期）
+
+书架更新摘要。`since` 必填。
+
+命中条件（或）：
+
+1. 小说 `updated_at > since`  
+2. 有进度且 `lastChapterNumber > progress.chapterNumber`
+
+```json
+{
+  "since": "…",
+  "serverTime": "…",
+  "items": [
+    {
+      "novelId": 10,
+      "title": "…",
+      "lastChapterNumber": 2284,
+      "lastChapterTitle": "…",
+      "novelUpdatedAt": "…",
+      "progress": { "chapterNumber": 120, "offsetRatio": 0.37, "updatedAt": "…" },
+      "hasUpdate": true,
+      "newChapterCount": 5
+    }
+  ]
+}
+```
 
 ### `POST /me/shelf`
 
@@ -241,8 +300,8 @@ Body:
 
 | 能力 | 期 |
 |------|----|
-| auth / books / toc 分页 / chapter / shelf / progress | 1（本分支首批） |
-| toc delta / shelf updates / ETag 强化 | 2 |
+| auth / books / toc 分页 / chapter / shelf / progress | 1（已完成） |
+| toc delta / shelf updates / ETag 强化 / Web 进度可选同步 | 2（已完成） |
 | progress batch / 离线队列 | 3 |
 | 推送 / 笔记云 / AI | 4 |
 
@@ -250,9 +309,16 @@ Body:
 
 | 路径 | 状态 |
 |------|------|
-| `/` `/novel/*` | **保留**，后续可接同一 progress API 升级 |
-| `/source/*` | **保留** Legado 兼容 |
-| `/api/v1/*` | 官方 App + 未来 Web 增强 |
+| `/` `/novel/*` | **保留**；章节页若 `localStorage.codexnovel_access_token` 有 JWT，则读写 `/api/v1/me/progress`（与本地进度 LWW） |
+| `/source/*` | **保留** Legado 兼容；Access Token 只读内容，不可写进度 |
+| `/api/v1/*` | 官方 App + Web 增强 |
+
+### Web 进度约定（第 2 期）
+
+- 键：`localStorage.codexnovel_access_token` = 用户 JWT（App/调试可写入；正式 Web 登录页后期补）  
+- 本地仍写 `reading-progress:{novelId}:{chapterNumber}`  
+- 云端：`PUT /api/v1/me/progress`，`deviceName: "web"`  
+- 打开章节：先 `GET /api/v1/me/progress/:novelId`，若服务端章号/时间更新则覆盖滚动位置
 
 ## 环境变量
 
