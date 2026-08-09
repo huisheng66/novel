@@ -16,8 +16,24 @@
   <header id="site-header">
     <div class="header-inner">
       <span class="site-name">书库</span>
+      <nav class="header-auth" id="header-auth" aria-label="账号">
+        <a href="/login">登录</a>
+      </nav>
     </div>
   </header>
+  <script>
+    (function () {
+      var el = document.getElementById('header-auth');
+      if (!el) return;
+      var token = '';
+      try { token = localStorage.getItem('codexnovel_access_token') || ''; } catch (e) {}
+      if (token) {
+        el.innerHTML = '<a href="/logout">退出</a>';
+      } else {
+        el.innerHTML = '<a href="/login">登录</a>';
+      }
+    })();
+  </script>
 
   <main>
     <section class="library-page">

@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>注册 - 书库</title>
+  <link rel="stylesheet" href="/css/main.css?v=20260809a">
+  <style>
+    .auth-page { max-width: 22rem; margin: 3rem auto; padding: 0 1.25rem; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+    .auth-page h1 { font-size: 1.35rem; margin-bottom: 0.35rem; }
+    .auth-page .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.25rem; line-height: 1.5; }
+    .auth-page label { display: block; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--muted); }
+    .auth-page input { display: block; width: 100%; margin-top: 0.35rem; padding: 0.55rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; color: var(--text); background: var(--bg); }
+    .auth-page button { width: 100%; margin-top: 0.5rem; padding: 0.65rem; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
+    .auth-alert { padding: 0.65rem 0.75rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; background: #fdecea; color: #b71c1c; }
+    .auth-links { margin-top: 1rem; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <main class="auth-page">
+    <h1>注册</h1>
+    <p class="hint">注册后可同时用于网页阅读与 ReadAny App。用户名仅字母、数字、下划线。</p>
+    <% if (error) { %><div class="auth-alert"><%= error %></div><% } %>
+    <form method="post" action="/register" autocomplete="on">
+      <input type="hidden" name="next" value="<%= nextPath || '/' %>">
+      <label>
+        用户名
+        <input type="text" name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" autocomplete="username">
+      </label>
+      <label>
+        显示名（可选）
+        <input type="text" name="displayName" maxlength="100" autocomplete="nickname">
+      </label>
+      <label>
+        密码
+        <input type="password" name="password" required minlength="8" autocomplete="new-password">
+      </label>
+      <button type="submit">注册并登录</button>
+    </form>
+    <p class="auth-links"><a href="/login?next=<%= encodeURIComponent(nextPath || '/') %>">已有账号？去登录</a></p>
+  </main>
+</body>
+</html>

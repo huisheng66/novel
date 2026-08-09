@@ -89,12 +89,16 @@ API_REGISTER_ENABLED=false
 ADMIN_SESSION_SECRET=<独立随机串>
 ```
 
-关闭自助注册后，可用 SQL 建用户或后续加 admin 建号接口：
+### 统一读者账号（Web + App）
 
-```sql
--- 仅示例：密码需用应用 bcrypt 生成，勿手写明文 hash
--- 推荐：临时打开注册建号后立刻关闭，或写运维脚本调用 /api/v1/auth/register
-```
+| 入口 | 说明 |
+|------|------|
+| 后台 `/admin/users` | 建号 / 禁用 / 重置密码 / 踢下线 / 删除 |
+| Web `/login` `/register` | 与 App 同一 `users` 表 + JWT |
+| App ReadAny | `/api/v1/auth/*` 同一账号 |
+| `/admin/tokens` | **仅**分享 / Legado 只读 Token，不是读者账号 |
+
+关闭自助注册后，在后台「读者账号」建号，或临时 `API_REGISTER_ENABLED=true`。
 
 ## 6. 限流与多实例
 

@@ -19,9 +19,21 @@
   <header id="site-header">
     <div class="header-inner">
       <span class="breadcrumb-current"><%= novel.title %></span>
-      <a class="header-shelf" href="/" title="返回书架" id="header-shelf">书架</a>
+      <span class="header-actions">
+        <a class="header-shelf" href="/" title="返回书架" id="header-shelf">书架</a>
+        <span id="header-auth"><a href="/login">登录</a></span>
+      </span>
     </div>
   </header>
+  <script>
+    (function () {
+      var el = document.getElementById('header-auth');
+      if (!el) return;
+      var token = '';
+      try { token = localStorage.getItem('codexnovel_access_token') || ''; } catch (e) {}
+      el.innerHTML = token ? '<a href="/logout">退出</a>' : '<a href="/login">登录</a>';
+    })();
+  </script>
 
   <div class="chapter-search-island" id="chapter-search-island" aria-hidden="true">
     <form class="chapter-search-form" id="chapter-search-form" role="search" autocomplete="off">

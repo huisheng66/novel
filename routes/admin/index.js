@@ -5,6 +5,7 @@ const { requireAdmin } = require('./shared');
 const authRoutes = require('./auth');
 const dashboardRoutes = require('./dashboard');
 const tokenRoutes = require('./tokens');
+const userRoutes = require('./users');
 const novelRoutes = require('./novels');
 const chapterRoutes = require('./chapters');
 
@@ -18,6 +19,7 @@ router.use(requireAdmin);
 
 router.use(dashboardRoutes);
 router.use(tokenRoutes);
+router.use(userRoutes);
 router.use(novelRoutes);
 router.use(chapterRoutes);
 

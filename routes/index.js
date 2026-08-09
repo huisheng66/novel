@@ -11,8 +11,12 @@ const {
 } = require('../lib/chapterText');
 const { authenticateToken, recordPageView, getRiskStats } = require('./middleware/auth');
 const sourceRoutes = require('./source');
+const webAuthRoutes = require('./web-auth');
 
 const router = express.Router();
+
+// Web 登录/注册（免 access_token；与 App 共用 users）
+router.use(webAuthRoutes);
 
 router.use(authenticateToken);
 router.use(recordPageView);

@@ -38,6 +38,23 @@ a:hover { opacity: 0.7; }
   justify-content: space-between;
   gap: 1rem;
 }
+.header-actions,
+.header-auth {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.85rem;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 0.8125rem;
+}
+.header-auth a,
+.header-actions a {
+  color: var(--muted);
+}
+.header-auth a:hover,
+.header-actions a:hover {
+  color: var(--accent);
+  opacity: 1;
+}
 .header-crumbs { min-width: 0; }
 .header-shelf {
   flex: 0 0 auto;

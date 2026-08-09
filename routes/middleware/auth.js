@@ -1,4 +1,5 @@
 // 鉴权 + 风控 + 统计中间件,从 routes/index.js 抽取
+// Web 可读：access_token（分享/Legado）或统一读者 JWT（App/Web 同一 users 账号）
 
 const crypto = require('crypto');
 const { pool } = require('../../db');
@@ -6,6 +7,17 @@ const cache = require('../../lib/memoryCache');
 const pageViewQueue = require('../../lib/pageViewQueue');
 const { parsePositiveInt } = require('../../lib/util');
 const logger = require('../../lib/logger');
+const { verifyAccessToken } = require('../../lib/api/tokens');
+const { findUserById, publicUser } = require('../../lib/api/users');
+
+/** Web JWT cookie：与 App 共用 users + access JWT */
+const WEB_JWT_COOKIE = 'cn_jwt';
+const WEB_JWT_COOKIE_OPTS = {
+  httpOnly: true,
+  sameSite: 'lax',
+  path: '/',
+  maxAge: 30 * 24 * 60 * 60 * 1000
+};
 
 // Token 鉴权内存缓存：过短会导致几乎每请求打 DB
 const ACCESS_TOKEN_CACHE_TTL_MS = parsePositiveInt(process.env.ACCESS_TOKEN_CACHE_TTL_MS, 120000);
@@ -356,24 +368,96 @@ function isTokenOnlySourcePath(pathname) {
   return isSourcePath(pathname);
 }
 
+function readCookieValue(req, name) {
+  const prefix = `${name}=`;
+  const part = String(req.headers.cookie || '')
+    .split(';')
+    .map((p) => p.trim())
+    .find((p) => p.startsWith(prefix));
+  if (!part) return '';
+  const raw = part.slice(prefix.length);
+  try {
+    return decodeURIComponent(raw);
+  } catch (err) {
+    return raw;
+  }
+}
+
+function getJwtFromRequest(req) {
+  const auth = String(req.headers.authorization || '');
+  if (/^Bearer\s+/i.test(auth)) {
+    return auth.replace(/^Bearer\s+/i, '').trim();
+  }
+  return readCookieValue(req, WEB_JWT_COOKIE).trim();
+}
+
+/**
+ * 统一读者 JWT（App / Web 登录后同一账号）
+ * @returns {Promise<object|null>} publicUser 或 null
+ */
+async function tryAuthenticateWebUser(req, res) {
+  const token = getJwtFromRequest(req);
+  if (!token) return null;
+  try {
+    const payload = verifyAccessToken(token);
+    const userId = Number(payload.sub);
+    if (!Number.isInteger(userId) || userId <= 0) return null;
+
+    const cacheKey = `web-user:${userId}`;
+    let user = cache.get(cacheKey);
+    if (!user) {
+      const row = await findUserById(userId);
+      if (!row || !(row.is_active === 1 || row.is_active === true)) return null;
+      user = publicUser(row);
+      cache.set(cacheKey, user, 60 * 1000);
+    }
+
+    req.webUser = user;
+    req.webJwt = token;
+    // 刷新 cookie，保持 Web 会话
+    if (res && !res.headersSent) {
+      res.cookie(WEB_JWT_COOKIE, token, WEB_JWT_COOKIE_OPTS);
+    }
+    return user;
+  } catch (err) {
+    return null;
+  }
+}
+
 async function requireAccessToken(req, res) {
   const accessTokenId = await getActiveAccessTokenId(req, res);
   if (accessTokenId) return accessTokenId;
   if (res.headersSent) return null;
+
+  // 统一读者账号（Web 登录 / App 同一 JWT）
+  const webUser = await tryAuthenticateWebUser(req, res);
+  if (webUser) {
+    req.accessTokenId = null;
+    return 'jwt-user';
+  }
 
   if (isTokenOnlySourcePath(req.path || req.originalUrl || '/')) {
     res.status(403).json({ error: 'Access token required' });
     return null;
   }
 
-  res.status(403).send('Access token required');
+  // 跳转登录页（浏览器 HTML）
+  const pathname = req.path || req.originalUrl || '/';
+  const acceptsHtml = String(req.headers.accept || '').includes('text/html');
+  if (acceptsHtml && !pathname.startsWith('/source')) {
+    const next = encodeURIComponent(pathname + (req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : ''));
+    res.redirect(`/login?next=${next}`);
+    return null;
+  }
+
+  res.status(403).send('Access token required. 请登录或使用 ?token=');
   return null;
 }
 
-// 鉴权中间件:过滤静态/管理路径,校验 access token 并执行风控判定
+// 鉴权中间件:过滤静态/管理路径,校验 access token 或读者 JWT
 async function authenticateToken(req, res, next) {
   try {
-    if (req.method !== 'GET') {
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
       return next();
     }
 
@@ -383,15 +467,30 @@ async function authenticateToken(req, res, next) {
       pathname.startsWith('/api') ||
       pathname.startsWith('/css') ||
       pathname.startsWith('/js') ||
+      pathname.startsWith('/uploads') ||
       pathname.startsWith('/favicon') ||
-      pathname === '/healthz'
+      pathname === '/healthz' ||
+      pathname === '/login' ||
+      pathname === '/logout' ||
+      pathname === '/register'
     ) {
+      // 登录页等也可解析 JWT 以显示状态
+      if (pathname === '/login' || pathname === '/register' || pathname === '/logout') {
+        await tryAuthenticateWebUser(req, res);
+      }
       return next();
     }
 
     const accessTokenId = await requireAccessToken(req, res);
     if (!accessTokenId) return;
-    req.accessTokenId = accessTokenId;
+    if (accessTokenId !== 'jwt-user') {
+      req.accessTokenId = accessTokenId;
+    }
+    // 若已有 access token，也尝试挂上 webUser（可选）
+    if (!req.webUser) {
+      await tryAuthenticateWebUser(req, res);
+    }
+    res.locals.webUser = req.webUser || null;
     next();
   } catch (err) {
     next(err);
@@ -454,5 +553,9 @@ module.exports = {
   recordPageView,
   getRiskStats,
   getAccessTokenValue,
-  parseNovelAndChapter
+  parseNovelAndChapter,
+  tryAuthenticateWebUser,
+  getJwtFromRequest,
+  WEB_JWT_COOKIE,
+  WEB_JWT_COOKIE_OPTS
 };

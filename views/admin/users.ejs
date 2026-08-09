@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>读者账号 - 后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/admin.css?v=20260809u">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <div>
+        <a href="/" class="site-name">阅读前台</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">读者账号</span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main admin-token-main">
+    <section class="admin-titlebar">
+      <div>
+        <h1>读者账号（Web + App 统一）</h1>
+        <p>与 ReadAny / 网页登录共用 <code>users</code> 表。Token 用户页仅用于分享/Legado 只读访问。</p>
+      </div>
+      <div class="admin-title-actions">
+        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+        <a class="button button-secondary" href="/admin">章节管理</a>
+        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+      </div>
+    </section>
+
+    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>新建账号</h2>
+        <span>用户名 3–32 位字母数字下划线；密码至少 8 位</span>
+      </div>
+      <form class="admin-form" action="/admin/users" method="post">
+        <div class="admin-grid">
+          <label>
+            <span>用户名</span>
+            <input type="text" name="username" required pattern="[A-Za-z0-9_]{3,32}" placeholder="reader01">
+          </label>
+          <label>
+            <span>显示名</span>
+            <input type="text" name="displayName" placeholder="可选">
+          </label>
+          <label>
+            <span>密码</span>
+            <input type="password" name="password" required minlength="8" placeholder="至少 8 位">
+          </label>
+        </div>
+        <button class="button" type="submit">创建用户</button>
+      </form>
+    </section>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>用户列表（共 <%= total %>）</h2>
+        <form method="get" action="/admin/users" style="display:flex;gap:0.5rem;align-items:center">
+          <input type="search" name="q" value="<%= q || '' %>" placeholder="搜索用户名/显示名" style="padding:0.35rem 0.5rem">
+          <button class="button button-secondary" type="submit">搜索</button>
+        </form>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>用户名</th>
+              <th>显示名</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% if (!users || users.length === 0) { %>
+              <tr><td colspan="6">暂无用户</td></tr>
+            <% } %>
+            <% (users || []).forEach(function(u) { %>
+              <tr>
+                <td><%= u.id %></td>
+                <td><code><%= u.username %></code></td>
+                <td><%= u.displayName %></td>
+                <td><%= u.isActive ? '启用' : '禁用' %></td>
+                <td><%= u.createdAt %></td>
+                <td class="admin-actions-cell">
+                  <form action="/admin/users/<%= u.id %>/toggle" method="post" style="display:inline">
+                    <input type="hidden" name="is_active" value="<%= u.isActive ? '0' : '1' %>">
+                    <button type="submit" class="button button-secondary"><%= u.isActive ? '禁用' : '启用' %></button>
+                  </form>
+                  <form action="/admin/users/<%= u.id %>/revoke-sessions" method="post" style="display:inline">
+                    <button type="submit" class="button button-secondary">踢下线</button>
+                  </form>
+                  <form action="/admin/users/<%= u.id %>/password" method="post" style="display:inline" onsubmit="var p=prompt('新密码（至少8位）'); if(!p||p.length<8){alert('密码至少8位');return false;} this.password.value=p;">
+                    <input type="hidden" name="password" value="">
+                    <button type="submit" class="button button-secondary">重置密码</button>
+                  </form>
+                  <form action="/admin/users/<%= u.id %>/delete" method="post" style="display:inline" onsubmit="return confirm('确定删除用户 <%= u.username %>？书架与进度将一并删除。');">
+                    <button type="submit" class="button button-secondary">删除</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <% var totalPages = Math.max(1, Math.ceil(total / pageSize)); %>
+      <% if (totalPages > 1) { %>
+        <p style="margin-top:1rem;font-size:0.85rem;color:var(--muted)">
+          第 <%= page %> / <%= totalPages %> 页
+          <% if (page > 1) { %>
+            <a href="/admin/users?page=<%= page - 1 %>&q=<%= encodeURIComponent(q || '') %>">上一页</a>
+          <% } %>
+          <% if (page < totalPages) { %>
+            <a href="/admin/users?page=<%= page + 1 %>&q=<%= encodeURIComponent(q || '') %>">下一页</a>
+          <% } %>
+        </p>
+      <% } %>
+    </section>
+  </main>
+</body>
+</html>
