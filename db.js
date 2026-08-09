@@ -99,7 +99,7 @@ async function ensureChapterSchema(conn) {
   }
 }
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 async function ensureSchemaVersionTable(conn) {
   await conn.execute(`
@@ -234,6 +234,8 @@ async function runSchemaMigrations(conn) {
   await runSchemaMigrationsV3(conn);
   // v4: 书签/笔记、运营配置、设备订阅（更新通知）
   await runSchemaMigrationsV4(conn);
+  // v5: 一次一码邀请码（自助注册）
+  await runSchemaMigrationsV5(conn);
 }
 
 async function runSchemaMigrationsV3(conn) {
@@ -435,6 +437,24 @@ async function runSchemaMigrationsV4(conn) {
       UNIQUE KEY uk_device_user (user_id, device_id),
       INDEX idx_device_enabled (user_id, enabled),
       CONSTRAINT fk_device_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
+async function runSchemaMigrationsV5(conn) {
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS invite_codes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      code VARCHAR(32) NOT NULL,
+      note VARCHAR(255) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME DEFAULT NULL,
+      used_at DATETIME DEFAULT NULL,
+      used_by_user_id INT DEFAULT NULL,
+      UNIQUE KEY uk_invite_code (code),
+      INDEX idx_invite_unused (used_at, expires_at),
+      INDEX idx_invite_used_by (used_by_user_id),
+      CONSTRAINT fk_invite_used_by FOREIGN KEY (used_by_user_id) REFERENCES users(id) ON DELETE SET NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
   `);
 }

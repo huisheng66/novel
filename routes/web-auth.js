@@ -105,6 +105,7 @@ router.post('/register', async (req, res) => {
       username: req.body.username,
       password: req.body.password,
       displayName: req.body.displayName || req.body.username,
+      inviteCode: req.body.inviteCode || req.body.invite_code,
       deviceName: 'web',
       userAgent: String(req.headers['user-agent'] || '').slice(0, 255)
     });

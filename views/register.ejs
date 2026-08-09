@@ -19,10 +19,14 @@
 <body>
   <main class="auth-page">
     <h1>注册</h1>
-    <p class="hint">注册后可同时用于网页阅读与 ReadAny App。用户名仅字母、数字、下划线。</p>
+    <p class="hint">注册后可同时用于网页阅读与 ReadAny App。需要<strong>一次一码邀请码</strong>（向管理员索取）。用户名仅字母、数字、下划线。</p>
     <% if (error) { %><div class="auth-alert"><%= error %></div><% } %>
     <form method="post" action="/register" autocomplete="on">
       <input type="hidden" name="next" value="<%= nextPath || '/' %>">
+      <label>
+        邀请码
+        <input type="text" name="inviteCode" required maxlength="32" placeholder="INV-XXXXXXXX" autocomplete="off" style="text-transform:uppercase">
+      </label>
       <label>
         用户名
         <input type="text" name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" autocomplete="username">

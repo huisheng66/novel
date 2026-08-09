@@ -30,6 +30,7 @@ router.post('/register', limitAuth, asyncRoute(async (req, res) => {
       username: req.body.username,
       password: req.body.password,
       displayName: req.body.displayName,
+      inviteCode: req.body.inviteCode || req.body.invite_code,
       ...clientMeta(req)
     });
     res.status(201).json(result);

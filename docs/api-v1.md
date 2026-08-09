@@ -50,12 +50,18 @@ API 版本响应头: `X-API-Version: 1`
 Body:
 
 ```json
-{ "username": "alice", "password": "secret12", "displayName": "Alice" }
+{
+  "username": "alice",
+  "password": "secret12",
+  "displayName": "Alice",
+  "inviteCode": "INV-A1B2C3D4"
+}
 ```
 
 - `username`: 3–32，字母数字下划线  
 - `password`: 至少 8 位  
-- 受 `API_REGISTER_ENABLED` 控制（默认开发开启）
+- `inviteCode`：**必填**，后台「邀请码」生成的一次一码；用后即废  
+- 受 `API_REGISTER_ENABLED` 控制（默认开发开启）；关闭后仅能后台建号  
 
 响应 `201`：同 login。
 
