@@ -17,22 +17,29 @@
 
 ## 后台管理
 
-路径：`/admin/users`
+### 读者账号 `/admin/users`
 
 - 新建 / 搜索  
 - 启用、禁用（禁用会清会话）  
 - 重置密码、踢下线、删除  
 
-`/admin/tokens` 仍只管理分享 Token。
+### 邀请码 `/admin/invites`（一次一码）
+
+- 一键生成 `INV-XXXXXXXX`  
+- 未使用 / 已使用列表  
+- Web、App **自助注册必填**；用后即废  
+- **后台直接建号不需要邀请码**
+
+`/admin/tokens` 仍只管理分享 / Legado 只读 Token。
 
 ## 环境变量
 
 ```env
-API_REGISTER_ENABLED=true   # 是否允许 Web/App 自助注册
+API_REGISTER_ENABLED=true   # 是否允许 Web/App 自助注册（仍须邀请码）
 JWT_ACCESS_SECRET=...       # 与 App 共用
 ```
 
-生产建议关闭自助注册，由后台建号。
+生产可：`API_REGISTER_ENABLED=false` 只走后台建号；或开启注册 + 发邀请码。
 
 ## Web 鉴权顺序
 
