@@ -24,7 +24,7 @@ function extractSiteToken(req) {
 
 async function loadSiteToken(tokenValue) {
   if (!tokenValue) return null;
-  const cacheKey = `access-token:${tokenValue}`;
+  const cacheKey = `api-access-token:${tokenValue}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 

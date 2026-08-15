@@ -15,6 +15,16 @@ const webAuthRoutes = require('./web-auth');
 
 const router = express.Router();
 
+// 缓存键按 Host 隔离：Host 头由客户端控制，若仅按路径缓存，恶意 Host 渲染出的页面
+// 会污染共享缓存并投毒给其他读者（CWE-644）。按 host 分键后投毒只影响同 Host 请求。
+function cacheHost(req) {
+  const host = String(req.get('host') || 'default')
+    .toLowerCase()
+    .replace(/[^a-z0-9.:-]/g, '_')
+    .slice(0, 64);
+  return host || 'default';
+}
+
 // Web 登录/注册（免 access_token；与 App 共用 users）
 router.use(webAuthRoutes);
 
@@ -60,7 +70,7 @@ function splitParagraphs(chapter) {
 router.get('/', async (req, res, next) => {
   try {
     const allowedNovelId = req.accessToken && req.accessToken.allowedNovelId;
-    const cacheKey = `html:home:${allowedNovelId || 'all'}`;
+    const cacheKey = `html:${cacheHost(req)}:home:${allowedNovelId || 'all'}`;
     if (sendCachedHtml(res, cacheKey)) return;
 
     const params = [];
@@ -88,7 +98,7 @@ router.get('/', async (req, res, next) => {
 
 router.get('/novel/:id', async (req, res, next) => {
   try {
-    const cacheKey = `html:novel:${req.params.id}`;
+    const cacheKey = `html:${cacheHost(req)}:novel:${req.params.id}`;
     if (sendCachedHtml(res, cacheKey)) return;
 
     const [[novel]] = await pool.execute(
@@ -114,7 +124,7 @@ router.get('/novel/:id/:chapterNum', async (req, res, next) => {
     const { id, chapterNum } = req.params;
 
     // 缓存键用 novelId+章号：命中时不必先读 LONGTEXT
-    const cacheKey = `html:chapter:v4:${id}:${chapterNum}`;
+    const cacheKey = `html:${cacheHost(req)}:chapter:v4:${id}:${chapterNum}`;
     if (sendCachedHtml(res, cacheKey)) return;
 
     // 未命中：小说元信息 / 正文 / 上下章并行查询

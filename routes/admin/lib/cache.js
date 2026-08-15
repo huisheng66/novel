@@ -16,6 +16,8 @@ function clearHomeCache() {
 
 function clearAccessTokenCache() {
   cache.clear('access-token:');
+  cache.clear('web-access-token:');
+  cache.clear('api-access-token:');
 }
 
 function clearNovelCache(novelId) {

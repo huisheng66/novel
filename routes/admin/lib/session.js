@@ -6,9 +6,20 @@ const logger = require('../../../lib/logger');
 
 const SESSION_COOKIE = 'admin_session';
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const DEFAULT_ADMIN_PASSWORD = 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || ADMIN_PASSWORD;
 const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
+// 生产环境拒绝默认/缺失的后台密码与会话密钥，避免 admin123 直登后台
+if (process.env.NODE_ENV === 'production') {
+  if (!process.env.ADMIN_PASSWORD || ADMIN_PASSWORD === DEFAULT_ADMIN_PASSWORD) {
+    throw new Error('生产环境必须设置强随机 ADMIN_PASSWORD，禁止使用默认密码 admin123');
+  }
+  if (!process.env.ADMIN_SESSION_SECRET) {
+    throw new Error('生产环境必须设置 ADMIN_SESSION_SECRET（强随机值，与 ADMIN_PASSWORD 分离）');
+  }
+}
 
 function parseCookies(cookieHeader) {
   return String(cookieHeader || '')
@@ -106,7 +117,8 @@ async function clearAdminSessionCookie(req, res) {
 
 function sanitizeNextPath(nextPath) {
   const value = String(nextPath || '/admin');
-  if (!value.startsWith('/admin') || value.startsWith('/admin/login') || value.startsWith('/admin/logout')) {
+  // 反斜杠会被浏览器归一化为 /，可绕过 // 前缀检查形成 scheme-relative 跳转
+  if (!value.startsWith('/admin') || value.startsWith('/admin/login') || value.startsWith('/admin/logout') || value.includes('\\')) {
     return '/admin';
   }
   return value;

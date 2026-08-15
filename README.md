@@ -62,7 +62,7 @@ ADMIN_SESSION_SECRET=change_this_secret
 - `ADMIN_PASSWORD`：后台登录密码
 - `ADMIN_SESSION_SECRET`：后台登录 Cookie 签名密钥，生产环境必须设置为独立随机字符串
 
-如果没有设置 `ADMIN_PASSWORD`，代码会使用默认值 `admin123`。生产环境不要使用默认密码。
+如果没有设置 `ADMIN_PASSWORD`，开发环境会使用默认值 `admin123`；**生产环境（NODE_ENV=production）代码会直接拒绝启动**，必须设置强随机密码。同时生产环境必须设置独立的 `ADMIN_SESSION_SECRET` 和 `JWT_ACCESS_SECRET`（≥32 字节，缺失时拒绝启动）。
 
 ## 启动
 

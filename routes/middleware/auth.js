@@ -29,6 +29,24 @@ const RISK_CLEANUP_INTERVAL_MS = 10 * 60 * 1000;
 const riskWindows = new Map();
 const riskWindowLoads = new Map();
 
+// 章节存在性检查（短 TTL 缓存，避免伪造的 /novel/999/1 这类 404 路径计入风控/统计）
+const CHAPTER_EXISTS_CACHE_TTL_MS = 60 * 1000;
+const chapterExistsCache = new Map();
+async function chapterExists(novelId, chapterId) {
+  if (!Number.isInteger(novelId) || !Number.isInteger(chapterId)) return false;
+  const key = `${novelId}:${chapterId}`;
+  const cached = chapterExistsCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  const [[row]] = await pool.execute(
+    'SELECT 1 FROM chapters WHERE novel_id = ? AND chapter_number = ? LIMIT 1',
+    [novelId, chapterId]
+  );
+  const value = Boolean(row);
+  if (chapterExistsCache.size > 20000) chapterExistsCache.clear();
+  chapterExistsCache.set(key, { value, expiresAt: Date.now() + CHAPTER_EXISTS_CACHE_TTL_MS });
+  return value;
+}
+
 // 定期清理风控 Map 中的空/过期 entry,避免 token 删除后 key 残留导致内存泄漏
 const riskCleanupTimer = setInterval(() => {
   const cutoff = Date.now() - RISK_WINDOW_MS;
@@ -56,11 +74,10 @@ function normalizeIp(ip) {
 }
 
 function getClientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  if (forwarded) return normalizeIp(forwarded);
-
-  const remote = req.socket && req.socket.remoteAddress ? String(req.socket.remoteAddress) : '';
-  return normalizeIp(remote);
+  // 优先使用 Express 按 trust proxy 解析出的地址；未配置时即 socket 对端地址。
+  // 不再直接采信客户端可控的 X-Forwarded-For。
+  const ip = req.ip || (req.socket && req.socket.remoteAddress) || '';
+  return normalizeIp(ip);
 }
 
 function getSessionId(req) {
@@ -204,7 +221,7 @@ async function getActiveAccessTokenId(req, res) {
 
   const pathname = req.path || req.originalUrl || '/';
   const shouldApplyRiskControl = isRiskControlledPath(pathname);
-  const cacheKey = `access-token:${token}`;
+  const cacheKey = `web-access-token:${token}`;
   const cachedAccessToken = cache.get(cacheKey);
   if (cachedAccessToken) {
     req.accessToken = cachedAccessToken;
@@ -217,7 +234,7 @@ async function getActiveAccessTokenId(req, res) {
       return null;
     }
     const pausedUntil = shouldApplyRiskControl
-      ? await pauseTokenIfOverLimit(cachedAccessToken.id, token, cachedAccessToken.allowedNovelId)
+      ? await pauseTokenIfOverLimit(cachedAccessToken.id, token, cachedAccessToken.allowedNovelId, pathname)
       : '';
     if (pausedUntil) {
       sendRiskPaused(res, pausedUntil);
@@ -273,7 +290,7 @@ async function getActiveAccessTokenId(req, res) {
   req.accessToken = accessToken;
   cache.set(cacheKey, accessToken, ACCESS_TOKEN_CACHE_TTL_MS);
   const pausedUntil = shouldApplyRiskControl
-    ? await pauseTokenIfOverLimit(row.id, token, row.allowed_novel_id || null)
+    ? await pauseTokenIfOverLimit(row.id, token, row.allowed_novel_id || null, pathname)
     : '';
   if (pausedUntil) {
     sendRiskPaused(res, pausedUntil);
@@ -283,7 +300,13 @@ async function getActiveAccessTokenId(req, res) {
   return row.id;
 }
 
-async function pauseTokenIfOverLimit(accessTokenId, token, allowedNovelId) {
+async function pauseTokenIfOverLimit(accessTokenId, token, allowedNovelId, pathname) {
+  // 只对真实存在的章节计数：伪造的 /novel/<不存在的id>/<章节> 404 路径不得触发风控暂停
+  const { novelId, chapterId } = parseNovelAndChapter(String(pathname || ''));
+  if (novelId && chapterId && !(await chapterExists(novelId, chapterId))) {
+    return '';
+  }
+
   const recentViews = await getRiskWindow(accessTokenId);
   if (recentViews.length < RISK_CHAPTER_LIMIT) {
     recentViews.push(Date.now());
@@ -296,7 +319,7 @@ async function pauseTokenIfOverLimit(accessTokenId, token, allowedNovelId) {
   const pad = n => String(n).padStart(2, '0');
   const pausedUntilText = `${pausedUntilDate.getFullYear()}-${pad(pausedUntilDate.getMonth() + 1)}-${pad(pausedUntilDate.getDate())} ${pad(pausedUntilDate.getHours())}:${pad(pausedUntilDate.getMinutes())}:${pad(pausedUntilDate.getSeconds())}`;
 
-  cache.set(`access-token:${token}`, {
+  cache.set(`web-access-token:${token}`, {
     id: accessTokenId,
     allowedNovelId: allowedNovelId || null,
     pausedUntil: pausedUntilText
@@ -513,6 +536,12 @@ async function recordPageView(req, res, next) {
     const userAgent = String(req.headers['user-agent'] || 'unknown').slice(0, 255);
     const referrer = String(req.headers.referer || req.headers.referrer || '').slice(0, 255) || null;
     const { novelId, chapterId } = parseNovelAndChapter(pathname);
+
+    // 不存在的章节（404）不写入 page_views，避免伪造路径污染统计并绕过/触发风控
+    if (novelId && chapterId && !(await chapterExists(novelId, chapterId))) {
+      next();
+      return;
+    }
 
     // 已有 Cookie 不再重复 Set-Cookie，减小响应头与客户端处理
     if (!hadUid) {

@@ -231,33 +231,37 @@ async function main() {
   assert(typeof opsGet.data.updatePolicy.minClientVersion === 'string', 'ops minClientVersion');
   console.log('OK ops get');
 
-  const adminKey = process.env.API_OPS_ADMIN_KEY || process.env.ADMIN_PASSWORD || 'admin123';
-  const opsPutRes = await fetch(`${base}/api/v1/ops`, {
-    method: 'PUT',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'X-Ops-Admin-Key': adminKey
-    },
-    body: JSON.stringify({
-      announcement: { enabled: true, text: 'smoke-announcement' },
-      updatePolicy: {
-        minClientVersion: '1.0.0',
-        forceUpdate: false,
-        message: 'smoke-force-msg',
-        storeUrl: 'https://example.com/app'
-      }
-    })
-  });
-  const opsPutBody = await opsPutRes.json();
-  assert(opsPutRes.status === 200, `ops put failed: ${JSON.stringify(opsPutBody)}`);
-  assert(opsPutBody.announcement && opsPutBody.announcement.text === 'smoke-announcement', 'ops announcement text');
-  assert(opsPutBody.updatePolicy.minClientVersion === '1.0.0', 'ops min version');
-  console.log('OK ops put');
+  const adminKey = process.env.API_OPS_ADMIN_KEY || process.env.ADMIN_PASSWORD || '';
+  if (!adminKey) {
+    console.error('SKIP ops put: API_OPS_ADMIN_KEY/ADMIN_PASSWORD 未设置');
+  } else {
+    const opsPutRes = await fetch(`${base}/api/v1/ops`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'X-Ops-Admin-Key': adminKey
+      },
+      body: JSON.stringify({
+        announcement: { enabled: true, text: 'smoke-announcement' },
+        updatePolicy: {
+          minClientVersion: '1.0.0',
+          forceUpdate: false,
+          message: 'smoke-force-msg',
+          storeUrl: 'https://example.com/app'
+        }
+      })
+    });
+    const opsPutBody = await opsPutRes.json();
+    assert(opsPutRes.status === 200, `ops put failed: ${JSON.stringify(opsPutBody)}`);
+    assert(opsPutBody.announcement && opsPutBody.announcement.text === 'smoke-announcement', 'ops announcement text');
+    assert(opsPutBody.updatePolicy.minClientVersion === '1.0.0', 'ops min version');
+    console.log('OK ops put');
 
-  const opsGet2 = await req('GET', '/api/v1/ops');
-  assert(opsGet2.data.announcement.text === 'smoke-announcement', 'ops re-read announcement');
-  console.log('OK ops re-read');
+    const opsGet2 = await req('GET', '/api/v1/ops');
+    assert(opsGet2.data.announcement.text === 'smoke-announcement', 'ops re-read announcement');
+    console.log('OK ops re-read');
+  }
 
   // —— 设备 + 更新通知 ——
   const dev = await req('POST', '/api/v1/me/devices', {
