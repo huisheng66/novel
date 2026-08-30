@@ -5,8 +5,13 @@ const express = require('express');
 const { pool } = require('../db');
 const logger = require('../lib/logger');
 const { generateEpubStream } = require('../lib/epub-generator');
+const { createRateLimiter } = require('../lib/rateLimit');
+const { getClientIp } = require('./middleware/auth');
 
 const router = express.Router();
+
+// 15 分钟内每 IP 最多 10 次 token 校验失败
+const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 
 /**
  * 将小说标题转为安全的文件名
@@ -88,6 +93,13 @@ async function webdavAuth(req, res, next) {
   }
 
   try {
+    const ip = getClientIp(req);
+    const limit = authLimiter.check(ip);
+    if (limit.blocked) {
+      res.set('Retry-After', String(limit.retryAfterSec));
+      return res.status(429).send('Too many failed attempts, try again later');
+    }
+
     const decoded = Buffer.from(auth.slice(6), 'base64').toString('utf-8');
     const colonIdx = decoded.indexOf(':');
     const password = decoded.slice(colonIdx + 1);
@@ -98,9 +110,12 @@ async function webdavAuth(req, res, next) {
     );
 
     if (!tokenRow) {
+      authLimiter.record(ip);
       res.set('WWW-Authenticate', 'Basic realm="Novel WebDAV"');
       return res.status(401).send('Invalid token');
     }
+
+    authLimiter.reset(ip);
 
     req.accessTokenId = tokenRow.id;
     req.accessToken = tokenRow;

@@ -199,6 +199,7 @@ async function getActiveAccessTokenId(req, res) {
     res.cookie('access_token', token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: true,
       maxAge: 365 * 24 * 60 * 60 * 1000,
       path: '/'
     });
@@ -236,6 +237,7 @@ async function getActiveAccessTokenId(req, res) {
     res.cookie('access_token', token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: true,
       maxAge: 365 * 24 * 60 * 60 * 1000,
       path: '/'
     });
@@ -435,12 +437,14 @@ async function recordPageView(req, res, next) {
     res.cookie('visitor_uid', visitorUid, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: true,
       maxAge: 365 * 24 * 60 * 60 * 1000,
       path: '/'
     });
     res.cookie('visitor_session', sessionId, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: true,
       maxAge: 60 * 60 * 24 * 365 * 1000,
       path: '/'
     });
@@ -477,5 +481,6 @@ module.exports = {
   getRiskStats,
   getAccessTokenValue,
   getVisitorUid,
+  getClientIp,
   parseNovelAndChapter
 };

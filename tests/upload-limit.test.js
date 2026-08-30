@@ -1,10 +1,22 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const net = require('node:net');
 const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { File } = require('node:buffer');
+
+// 服务端用 --env-file=.env 启动,测试进程自己也要从 .env 读取管理员口令
+function readEnvValue(name) {
+  try {
+    const content = fs.readFileSync(path.resolve(__dirname, '..', '.env'), 'utf8');
+    const match = content.match(new RegExp(`^${name}=(.*)$`, 'm'));
+    return match ? match[1].trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 const CHAPTER_ACCEPT_BYTES = 22 * 1024 * 1024;
 const CHAPTER_REJECT_BYTES = 31 * 1024 * 1024;
@@ -85,7 +97,7 @@ async function stopServer() {
 
 async function loginAsAdmin() {
   const body = new URLSearchParams({
-    password: process.env.ADMIN_PASSWORD || 'admin123',
+    password: readEnvValue('ADMIN_PASSWORD') || 'admin123',
     next: '/admin'
   });
 

@@ -18,8 +18,12 @@ const COVER_UPLOAD_MAX_BYTES = COVER_UPLOAD_MAX_MB * 1024 * 1024;
 
 const SESSION_COOKIE = 'admin_session';
 const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
-const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || ADMIN_PASSWORD;
+// 不再提供默认口令回退:缺失即拒绝启动,防止弱口令上线
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || '';
+if (!ADMIN_PASSWORD || !SESSION_SECRET) {
+  throw new Error('环境变量 ADMIN_PASSWORD 与 ADMIN_SESSION_SECRET 必填(请使用随机强口令,参见 .env.example)');
+}
 const SESSION_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
 
 // ===== 文件上传 =====
@@ -137,16 +141,13 @@ async function revokeSession(value) {
   }
 }
 
-function isSecureRequest(req) {
-  return req.secure || req.headers['x-forwarded-proto'] === 'https';
-}
-
 async function setAdminSessionCookie(req, res) {
   const value = await createSessionValue();
   res.cookie(SESSION_COOKIE, value, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: isSecureRequest(req),
+    // localhost 与 HTTPS 之外的明文传输(如局域网 IP 直连)不再下发会话 cookie
+    secure: true,
     maxAge: SESSION_MAX_AGE_MS,
     path: '/admin'
   });

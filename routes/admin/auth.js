@@ -10,8 +10,13 @@ const {
   sanitizeNextPath,
   ADMIN_PASSWORD
 } = require('./shared');
+const { createRateLimiter } = require('../../lib/rateLimit');
+const { getClientIp } = require('../middleware/auth');
 
 const router = express.Router();
+
+// 15 分钟内最多 5 次失败,成功登录即清零
+const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 5 });
 
 router.get('/login', async (req, res) => {
   const cookies = parseCookies(req.headers.cookie);
@@ -30,12 +35,22 @@ router.get('/login', async (req, res) => {
 });
 
 router.post('/login', async (req, res) => {
+  const ip = getClientIp(req);
+  const limit = loginLimiter.check(ip);
+  if (limit.blocked) {
+    const message = `失败次数过多,请约 ${Math.max(1, Math.ceil(limit.retryAfterSec / 60))} 分钟后再试`;
+    return res.redirect(429, `/admin/login?next=${encodeURIComponent(sanitizeNextPath(req.body.next))}&error=${encodeURIComponent(message)}`);
+  }
+
   const password = String(req.body.password || '');
   const nextPath = sanitizeNextPath(req.body.next);
 
   if (!timingSafeEqualString(password, ADMIN_PASSWORD)) {
+    loginLimiter.record(ip);
     return res.redirect(`/admin/login?next=${encodeURIComponent(nextPath)}&error=${encodeURIComponent('密码错误')}`);
   }
+
+  loginLimiter.reset(ip);
 
   try {
     await setAdminSessionCookie(req, res);

@@ -7,15 +7,18 @@ const { pool, initDB } = require('./db');
 const indexRoutes = require('./routes/index');
 const adminRoutes = require('./routes/admin');
 const webdavRoutes = require('./routes/webdav');
-const { getAccessTokenValue, getVisitorUid } = require('./routes/middleware/auth');
+const { getAccessTokenValue, getVisitorUid, getClientIp } = require('./routes/middleware/auth');
 const { getBaseUrl, parsePositiveInt } = require('./lib/util');
 const pageViewQueue = require('./lib/pageViewQueue');
 const cache = require('./lib/memoryCache');
 const analytics = require('./lib/analytics');
 const logger = require('./lib/logger');
+const { createRateLimiter } = require('./lib/rateLimit');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+// HTTP 明文端口默认只绑本机(开发调试用);局域网/公网访问请走 HTTPS
+const HTTP_HOST = process.env.HTTP_HOST || '127.0.0.1';
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
@@ -103,9 +106,18 @@ app.get('/api/me', async (req, res) => {
 });
 
 // 登录:验证用户名 + token,设置 cookie
+// 15 分钟内每 IP 最多 10 次失败,成功登录即清零
+const loginLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+
 app.post('/api/login', async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
+    const ip = getClientIp(req);
+    const limit = loginLimiter.check(ip);
+    if (limit.blocked) {
+      return res.status(429).json({ success: false, error: `尝试次数过多,请约 ${Math.max(1, Math.ceil(limit.retryAfterSec / 60))} 分钟后再试` });
+    }
+
     const { name, token } = req.body || {};
     if (!name || !token) {
       return res.status(400).json({ success: false, error: '请输入用户名和令牌' });
@@ -117,12 +129,16 @@ app.post('/api/login', async (req, res) => {
     );
 
     if (!row) {
+      loginLimiter.record(ip);
       return res.status(401).json({ success: false, error: '用户名或令牌无效' });
     }
+
+    loginLimiter.reset(ip);
 
     res.cookie('access_token', row.token, {
       httpOnly: true,
       sameSite: 'lax',
+      secure: true,
       maxAge: 365 * 24 * 60 * 60 * 1000,
       path: '/'
     });
@@ -137,7 +153,7 @@ app.post('/api/login', async (req, res) => {
 // 登出:清除 cookie
 app.post('/api/logout', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  res.clearCookie('access_token', { path: '/' });
+  res.clearCookie('access_token', { path: '/', httpOnly: true, sameSite: 'lax', secure: true });
   res.json({ success: true });
 });
 
@@ -246,9 +262,9 @@ app.use((err, req, res, next) => {
 });
 
 initDB().then(() => {
-  // HTTP — 浏览器访问
-  const httpServer = http.createServer(app).listen(PORT, '0.0.0.0', () => {
-    logger.info('HTTP server started', { port: PORT, host: '0.0.0.0' });
+  // HTTP — 仅本机调试;明文端口不再暴露到局域网/公网
+  const httpServer = http.createServer(app).listen(PORT, HTTP_HOST, () => {
+    logger.info('HTTP server started', { port: PORT, host: HTTP_HOST });
   });
 
   // HTTPS — ReadAny WebDAV 导入用
