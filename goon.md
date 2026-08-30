@@ -16,11 +16,19 @@
 
 ## 需要手动验证的三处（无法在此环境跑 GUI）
 
-重新构建桌面端/移动端后请冒烟：
+~~重新构建桌面端/移动端后请冒烟~~ → **移动端已于 2026-08-30 在 Android 模拟器实测通过**（见下节），桌面端仍需人工验证：
 
 1. 桌面端从文件选择器导入一本书并打开；
-2. 若书库根目录设在外置盘/非常规路径，确认还能访问（scope 收窄保留了 HOME 和 `/Volumes`、`/media`、`/mnt` 等挂载点，但不含 `/srv` 这类路径）；
-3. 移动端打开一本书阅读（已关掉 `allowFileAccessFromFileURLs`/`allowUniversalAccessFromFileURLs`，书内容本就应走本地 HTTP 服务，若真有 file:// 直读的路径会在此暴露）。
+2. 若书库根目录设在外置盘/非常规路径，确认还能访问（scope 收窄保留了 HOME 和 `/Volumes`、`/media`、`/mnt` 等挂载点，但不含 `/srv` 这类路径）。
+
+## 移动端实测记录（2026-08-30，ExpoAVD / Android 16 x86_64）
+
+- 构建链：`expo prebuild -p android` → `./gradlew assembleRelease` 成功（16m54s）。
+- 网络坑：本机网络对 JVM TLS 握手有针对性干扰（curl 正常、gradle 被掐），用阿里云镜像 init 脚本解决：
+  `./gradlew ... --init-script /tmp/gradle-aliyun.init.gradle`（临时脚本，未改任何持久配置；本机 7890 端口代理可用但对 Maven Central 无效）。
+- 实测通过：App 安装启动 → 引导流程（中文切换正常）→ 书库导入《星辰变.epub》（SAF 选择器，元数据/封面提取正确）→ **打开阅读器渲染正常、翻页正常**。
+- 结论：关闭 `allowFileAccessFromFileURLs`/`allowUniversalAccessFromFileURLs` 后移动端阅读器（file:// 外壳 + 本地 HTTP 内容服务）无回归。
+- 桌面端无法在本机构建：缺 `webkit2gtk`/`libsoup-3.0` 系统库且无 sudo；机器有 X 显示（DISPLAY=:0），装好依赖后可真跑。
 
 ## 遗留事项（有意未动，需要更大改动或真机验证）
 
