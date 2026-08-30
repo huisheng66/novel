@@ -32,6 +32,7 @@ app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.json({ limit: '1mb' }));
 
 app.use(logger.requestLogger);
+app.use(require('./lib/securityHeaders'));
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({
@@ -217,12 +218,14 @@ app.post('/api/novels/:id/comments', async (req, res) => {
       path: '/'
     });
 
-    // 频率限制:同一访客 60 秒内只能发一条
+    // 频率限制:同一 token 或同一访客 60 秒内只能发一条。
+    // visitor_uid 来自客户端 cookie 可随意轮换,必须叠加服务端校验的 access_token_id
     const [[recent]] = await pool.execute(
       `SELECT 1 FROM novel_comments
-       WHERE visitor_uid = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 60 SECOND)
+       WHERE created_at >= DATE_SUB(NOW(), INTERVAL 60 SECOND)
+         AND (access_token_id = ? OR visitor_uid = ?)
        LIMIT 1`,
-      [visitorUid]
+      [tokenRow.id, visitorUid]
     );
     if (recent) return res.status(429).json({ error: '评论太快了,请 1 分钟后再试' });
 

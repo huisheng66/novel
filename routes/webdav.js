@@ -2,6 +2,9 @@
 // 鉴权: HTTP Basic Auth, 密码 = access token
 
 const express = require('express');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const { pool } = require('../db');
 const logger = require('../lib/logger');
 const { generateEpubStream } = require('../lib/epub-generator');
@@ -12,6 +15,58 @@ const router = express.Router();
 
 // 15 分钟内每 IP 最多 10 次 token 校验失败
 const authLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+
+// EPUB 生成是全量读取章节+压缩的重操作:按 ETag 做磁盘缓存,并限制下载频率
+const CACHE_DIR = path.join(os.tmpdir(), 'novel-webdav-epub-cache');
+const CACHE_MAX_FILES = 6;
+const DOWNLOAD_WINDOW_MS = 60 * 1000;
+const DOWNLOAD_MAX_PER_WINDOW = 30;
+const downloadHits = new Map();
+
+// 定期清理限速 Map,避免大量一次性 token 占用内存
+const dlSweepTimer = setInterval(() => {
+  const cutoff = Date.now() - DOWNLOAD_WINDOW_MS;
+  for (const [key, arr] of downloadHits) {
+    while (arr.length > 0 && arr[0] <= cutoff) arr.shift();
+    if (arr.length === 0) downloadHits.delete(key);
+  }
+}, 5 * 60 * 1000);
+if (dlSweepTimer.unref) dlSweepTimer.unref();
+
+function allowDownload(tokenId) {
+  const key = String(tokenId || 'anon');
+  const cutoff = Date.now() - DOWNLOAD_WINDOW_MS;
+  let arr = downloadHits.get(key);
+  if (!arr) {
+    arr = [];
+    downloadHits.set(key, arr);
+  }
+  while (arr.length > 0 && arr[0] <= cutoff) arr.shift();
+  if (arr.length >= DOWNLOAD_MAX_PER_WINDOW) return false;
+  arr.push(Date.now());
+  return true;
+}
+
+function cachePathForEtag(etag) {
+  return path.join(CACHE_DIR, Buffer.from(String(etag)).toString('hex') + '.epub');
+}
+
+function sweepCache() {
+  try {
+    const files = fs.readdirSync(CACHE_DIR)
+      .filter((f) => f.endsWith('.epub'))
+      .map((f) => {
+        const p = path.join(CACHE_DIR, f);
+        return { p, m: fs.statSync(p).mtimeMs };
+      })
+      .sort((a, b) => a.m - b.m);
+    for (let i = 0; i < files.length - CACHE_MAX_FILES; i++) {
+      fs.unlink(files[i].p, () => undefined);
+    }
+  } catch (err) {
+    logger.debug('WebDAV cache sweep failed', { err });
+  }
+}
 
 /**
  * 将小说标题转为安全的文件名
@@ -293,14 +348,51 @@ async function handleGet(req, res, reqPath) {
     'Cache-Control': 'no-cache'
   });
 
+  // 条件请求:内容未变化时直接 304,避免重复生成/下载整本 EPUB
+  if (req.headers['if-none-match'] === meta.etag) {
+    return res.status(304).end();
+  }
+
+  if (!allowDownload(req.accessTokenId)) {
+    res.set('Retry-After', '60');
+    return res.status(429).send('Too many downloads, slow down');
+  }
+
+  const cachedPath = cachePathForEtag(meta.etag);
+  if (fs.existsSync(cachedPath)) {
+    logger.debug('WebDAV EPUB cache hit', { novelId: novel.id, etag: meta.etag });
+    fs.createReadStream(cachedPath).pipe(res);
+    return;
+  }
+
   const stream = generateEpubStream(novel, chapters, lastUpdated);
+
+  // 边回传客户端边写入缓存临时文件,完成后原子 rename;失败不影响本次响应
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true });
+    const partPath = `${cachedPath}.${process.hrtime.bigint()}.part`;
+    const fileStream = fs.createWriteStream(partPath);
+    stream.pipe(res);
+    stream.pipe(fileStream);
+    fileStream.on('finish', () => {
+      fs.rename(partPath, cachedPath, () => sweepCache());
+    });
+    fileStream.on('error', () => {
+      fs.unlink(partPath, () => undefined);
+    });
+  } catch (cacheErr) {
+    logger.debug('WebDAV EPUB cache write skipped', { err: cacheErr });
+    stream.pipe(res);
+  }
+
   stream.on('error', (err) => {
     logger.error('EPUB stream error', { err, novelId: novel.id });
     if (!res.headersSent) {
       res.status(500).send('EPUB generation error');
+    } else {
+      res.destroy();
     }
   });
-  stream.pipe(res);
 }
 
 // ── HEAD: 只返回头 ──────────────────────────────────

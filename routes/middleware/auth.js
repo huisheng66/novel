@@ -420,6 +420,21 @@ async function authenticateToken(req, res, next) {
 }
 
 // 统计中间件:记录访客信息与页面访问(仅在鉴权通过后执行)
+function sanitizeReferrer(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    // 只保留 origin+path:query 里常带 ?token=;导入路径本身含 token,一并隐去
+    if (/^\/source\/import\//.test(url.pathname)) {
+      return `${url.origin}/source/import/…`.slice(0, 255);
+    }
+    return `${url.origin}${url.pathname}`.slice(0, 255);
+  } catch (err) {
+    return null;
+  }
+}
+
 async function recordPageView(req, res, next) {
   try {
     if (!req.accessTokenId) {
@@ -431,7 +446,7 @@ async function recordPageView(req, res, next) {
     const sessionId = getSessionId(req);
     const visitorIp = getClientIp(req);
     const userAgent = String(req.headers['user-agent'] || 'unknown').slice(0, 255);
-    const referrer = String(req.headers.referer || req.headers.referrer || '').slice(0, 255) || null;
+    const referrer = sanitizeReferrer(req.headers.referer || req.headers.referrer);
     const { novelId, chapterId } = parseNovelAndChapter(pathname);
 
     res.cookie('visitor_uid', visitorUid, {
