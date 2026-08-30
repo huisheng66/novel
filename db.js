@@ -69,6 +69,12 @@ async function ensureChapterSchema(conn) {
     await conn.execute('ALTER TABLE chapters ADD COLUMN chapter_number INT NULL AFTER novel_id');
   }
 
+  if (!await columnExists(conn, 'chapters', 'updated_at')) {
+    await conn.execute(
+      'ALTER TABLE chapters ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at'
+    );
+  }
+
   await conn.execute('UPDATE chapters SET novel_id = ? WHERE novel_id IS NULL', [defaultNovelId]);
 
   if (hasChapterNo) {
@@ -99,7 +105,7 @@ async function ensureChapterSchema(conn) {
   }
 }
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 async function ensureSchemaVersionTable(conn) {
   await conn.execute(`
@@ -221,6 +227,7 @@ async function initDB() {
         title VARCHAR(255) NOT NULL,
         content LONGTEXT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE,
         UNIQUE KEY uk_novel_chapter (novel_id, chapter_number)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

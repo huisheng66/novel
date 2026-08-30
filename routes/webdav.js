@@ -28,7 +28,7 @@ function filenameToTitle(filename) {
  */
 async function getNovelMeta(novelId) {
   const [[row]] = await pool.execute(
-    `SELECT COUNT(*) as cnt, UNIX_TIMESTAMP(MAX(created_at)) as ts
+    `SELECT COUNT(*) as cnt, UNIX_TIMESTAMP(MAX(updated_at)) as ts
      FROM chapters WHERE novel_id = ?`,
     [novelId]
   );
