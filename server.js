@@ -34,7 +34,14 @@ app.use(express.json({ limit: '1mb' }));
 app.use(logger.requestLogger);
 app.use(require('./lib/securityHeaders'));
 
-app.get('/healthz', (req, res) => {
+// 运维端点仅限本机访问;远程监控请经 nginx 反代自 127.0.0.1 取
+function loopbackOnly(req, res, next) {
+  const ip = String(req.socket && req.socket.remoteAddress || '');
+  if (ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1') return next();
+  res.status(403).send('Forbidden');
+}
+
+app.get('/healthz', loopbackOnly, (req, res) => {
   res.status(200).json({
     status: 'ok',
     queue: pageViewQueue.stats(),
@@ -42,7 +49,7 @@ app.get('/healthz', (req, res) => {
   });
 });
 
-app.get('/metrics', (req, res) => {
+app.get('/metrics', loopbackOnly, (req, res) => {
   res.type('text/plain; version=0.0.4');
   const queueStats = pageViewQueue.stats();
   const riskStats = indexRoutes.getRiskStats();

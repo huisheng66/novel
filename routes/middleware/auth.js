@@ -42,9 +42,15 @@ function normalizeIp(ip) {
   return value.slice(0, 64);
 }
 
+// 仅在部署于可信反代(nginx)之后时设 TRUST_PROXY=1;
+// 直连场景下 X-Forwarded-For 可被客户端伪造,一律忽略
+const TRUST_PROXY = process.env.TRUST_PROXY === '1';
+
 function getClientIp(req) {
-  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
-  if (forwarded) return normalizeIp(forwarded);
+  if (TRUST_PROXY) {
+    const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+    if (forwarded) return normalizeIp(forwarded);
+  }
 
   const remote = req.socket && req.socket.remoteAddress ? String(req.socket.remoteAddress) : '';
   return normalizeIp(remote);
