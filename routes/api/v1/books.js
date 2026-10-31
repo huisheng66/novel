@@ -78,7 +78,8 @@ router.get('/:id/chapters/:chapterNumber', limitChapter, asyncRoute(async (req, 
       ifNoneMatch: req.headers['if-none-match'] || ''
     });
     res.set('ETag', result.etag);
-    res.set('Cache-Control', 'private, max-age=60');
+    // 付费章节禁止任何中间层缓存；免费章节维持 60s 私有缓存
+    res.set('Cache-Control', result.paid ? 'private, no-store' : 'private, max-age=60');
     if (result.notModified) return res.status(304).end();
     res.json(result.body);
   } catch (err) {

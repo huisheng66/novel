@@ -541,3 +541,195 @@ html[data-reader-theme="light"] #site-footer { color: #ccc; }
 html[data-reader-theme="light"] .chapter-list h2 { color: #bbb; }
 html[data-reader-theme="light"] .breadcrumb { color: #ccc; }
 
+
+/* ===== 付费章节：试读渐隐 + 解锁卡片 ===== */
+.chapter-teaser {
+  position: relative;
+  max-height: 11rem;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+}
+
+.chapter-paywall {
+  margin: 1.8rem auto 1rem;
+  max-width: 24rem;
+  padding: 1.25rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--code-bg);
+  text-align: center;
+}
+
+.chapter-paywall-title {
+  margin: 0 0 0.35rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.chapter-paywall-price {
+  margin: 0 0 0.75rem;
+  font-size: 1.6rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.chapter-paywall-tip {
+  margin: 0 0 0.9rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.chapter-paywall-cta {
+  display: inline-block;
+  padding: 0.55rem 1.6rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  text-decoration: none;
+}
+
+/* 目录页：付费章节标记 */
+.chapter-lock {
+  display: inline-block;
+  margin-left: 0.45rem;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--accent);
+  vertical-align: middle;
+}
+
+/* ===== 钱包页 ===== */
+.wallet-main {
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 3rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.wallet-alert {
+  padding: 0.7rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.wallet-alert-ok {
+  border: 1px solid var(--accent);
+  color: var(--accent);
+}
+
+.wallet-alert-error {
+  border: 1px solid #c0392b;
+  color: #c0392b;
+}
+
+.wallet-card {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.1rem;
+}
+
+.wallet-label {
+  margin: 0 0 0.2rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.wallet-balance {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.wallet-user {
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.wallet-h2 {
+  margin: 0 0 0.8rem;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.wallet-form {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.wallet-form input {
+  flex: 1 1 12rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.wallet-form button {
+  padding: 0.55rem 1.2rem;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+.wallet-hint {
+  margin: 0.6rem 0 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.wallet-table-wrap {
+  overflow-x: auto;
+}
+
+.wallet-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.wallet-table th,
+.wallet-table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.wallet-table th {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.wallet-in { color: var(--accent); }
+.wallet-out { color: #c0392b; }
+
+.wallet-purchase-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.wallet-purchase-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}

@@ -5,3 +5,17 @@ server*.log
 tmp-*.json
 deploy-ubuntu.log
 public/uploads/
+
+# 本地产物
+.tmp-screens/
+
+.release/
+
+# 排查脚本与临时产物
+strix_runs/
+ppt_edit_tmp/
+/*.tgz
+
+# 工作区笔记与构建日志（含运维信息，不入库）
+.workbuddy/
+android/.kotlin/

@@ -19,25 +19,25 @@
 <body>
   <main class="auth-page">
     <h1>注册</h1>
-    <p class="hint">注册后可同时用于网页阅读与 ReadAny App。需要<strong>一次一码邀请码</strong>（向管理员索取）。用户名仅字母、数字、下划线。</p>
+    <p class="hint">用<strong>邮箱</strong>注册，账号可在网页与 ReadAny App 通用。邀请码<strong>选填</strong>——有就填，没有也能注册。</p>
     <% if (error) { %><div class="auth-alert"><%= error %></div><% } %>
     <form method="post" action="/register" autocomplete="on">
       <input type="hidden" name="next" value="<%= nextPath || '/' %>">
       <label>
-        邀请码
-        <input type="text" name="inviteCode" required maxlength="32" placeholder="INV-XXXXXXXX" autocomplete="off" style="text-transform:uppercase">
-      </label>
-      <label>
-        用户名
-        <input type="text" name="username" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_]{3,32}" autocomplete="username">
-      </label>
-      <label>
-        显示名（可选）
-        <input type="text" name="displayName" maxlength="100" autocomplete="nickname">
+        邮箱
+        <input type="email" name="email" required maxlength="255" placeholder="you@example.com" autocomplete="email">
       </label>
       <label>
         密码
-        <input type="password" name="password" required minlength="8" autocomplete="new-password">
+        <input type="password" name="password" required minlength="8" placeholder="至少 8 位" autocomplete="new-password">
+      </label>
+      <label>
+        显示名（可选）
+        <input type="text" name="displayName" maxlength="100" placeholder="留空则用邮箱前缀" autocomplete="nickname">
+      </label>
+      <label>
+        邀请码（选填）
+        <input type="text" name="inviteCode" maxlength="32" placeholder="有就填，如 INV-XXXXXXXX" autocomplete="off" style="text-transform:uppercase">
       </label>
       <button type="submit">注册并登录</button>
     </form>

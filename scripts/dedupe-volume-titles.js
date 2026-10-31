@@ -3,7 +3,6 @@
 //   node --env-file=.env scripts/dedupe-volume-titles.js --novel 9
 
 const { pool } = require('../db');
-const cache = require('../lib/memoryCache');
 const { dedupeVolumePrefixes } = require('../lib/chapterText');
 
 function parseArgs(argv) {
@@ -46,9 +45,8 @@ function parseArgs(argv) {
       changed += 1;
     }
     if (changed > 0) {
-      cache.clear(`html:novel:${novel.id}`);
-      cache.clear('html:chapter:');
-      cache.clear('html:home:');
+      // 本脚本是独立进程，内存缓存（lib/memoryCache）与线上服务不共享，
+      // 这里 clear 无意义。改完标题后需重启服务，或等待 HTML 缓存 TTL 自然过期。
       console.log(`novel ${novel.id} ${novel.title}: updated ${changed}/${chapters.length}`);
       updatedTotal += changed;
     } else {

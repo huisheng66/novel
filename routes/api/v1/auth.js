@@ -7,6 +7,7 @@ const {
 } = require('../../../lib/api/users');
 const { authRateLimit } = require('../../../lib/api/rateLimit');
 const { sendError, ApiError } = require('../../../lib/api/errors');
+const emailApi = require('../../../lib/api/email');
 
 const router = express.Router();
 const limitAuth = authRateLimit();
@@ -27,13 +28,17 @@ function clientMeta(req) {
 router.post('/register', limitAuth, asyncRoute(async (req, res) => {
   try {
     const result = await registerUser({
+      email: req.body.email,
       username: req.body.username,
       password: req.body.password,
       displayName: req.body.displayName,
+      // 邀请码可选，填了才核销
       inviteCode: req.body.inviteCode || req.body.invite_code,
       ...clientMeta(req)
     });
-    res.status(201).json(result);
+
+    const sent = await emailApi.maybeSendVerification(result.user, emailApi.resolveBaseUrl(req));
+    res.status(201).json({ ...result, emailVerificationSent: Boolean(sent && sent.delivered) });
   } catch (err) {
     if (err instanceof ApiError) return sendError(res, err);
     throw err;
@@ -43,7 +48,8 @@ router.post('/register', limitAuth, asyncRoute(async (req, res) => {
 router.post('/login', limitAuth, asyncRoute(async (req, res) => {
   try {
     const result = await loginUser({
-      username: req.body.username,
+      // 兼容三种字段：login / email / username
+      login: req.body.login || req.body.email || req.body.username,
       password: req.body.password,
       ...clientMeta(req)
     });

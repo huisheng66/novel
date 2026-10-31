@@ -30,6 +30,9 @@
       <div class="admin-title-actions">
         <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
         <a class="button button-secondary" href="/admin/invites">邀请码</a>
+        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
+        <a class="button button-secondary" href="/admin/recharge">充值码</a>
+        <a class="button button-secondary" href="/admin/email">邮件与验证</a>
         <a class="button button-secondary" href="/admin">章节管理</a>
         <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
       </div>
@@ -48,6 +51,10 @@
           <label>
             <span>用户名</span>
             <input type="text" name="username" required pattern="[A-Za-z0-9_]{3,32}" placeholder="reader01">
+          </label>
+          <label>
+            <span>邮箱（可选）</span>
+            <input type="email" name="email" placeholder="reader@example.com">
           </label>
           <label>
             <span>显示名</span>
@@ -77,27 +84,54 @@
             <tr>
               <th>ID</th>
               <th>用户名</th>
+              <th>邮箱 / 验证</th>
               <th>显示名</th>
               <th>状态</th>
+              <th>余额</th>
               <th>创建时间</th>
               <th>操作</th>
             </tr>
           </thead>
           <tbody>
             <% if (!users || users.length === 0) { %>
-              <tr><td colspan="6">暂无用户</td></tr>
+              <tr><td colspan="8">暂无用户</td></tr>
             <% } %>
             <% (users || []).forEach(function(u) { %>
               <tr>
                 <td><%= u.id %></td>
                 <td><code><%= u.username %></code></td>
+                <td>
+                  <% if (u.email) { %>
+                    <span class="admin-mono-cell"><%= u.email %></span>
+                    <br>
+                    <% if (u.emailVerified) { %>
+                      <span style="color:var(--accent);font-size:0.78rem">已验证</span>
+                    <% } else { %>
+                      <span style="color:#c0392b;font-size:0.78rem">未验证</span>
+                    <% } %>
+                  <% } else { %>
+                    <span style="color:var(--muted)">—</span>
+                  <% } %>
+                </td>
                 <td><%= u.displayName %></td>
                 <td><%= u.isActive ? '启用' : '禁用' %></td>
+                <td>¥<%= ((u.balance || 0) / 100).toFixed(2) %></td>
                 <td><%= u.createdAt %></td>
                 <td class="admin-actions-cell">
                   <form action="/admin/users/<%= u.id %>/toggle" method="post" style="display:inline">
                     <input type="hidden" name="is_active" value="<%= u.isActive ? '0' : '1' %>">
                     <button type="submit" class="button button-secondary"><%= u.isActive ? '禁用' : '启用' %></button>
+                  </form>
+                  <% if (u.email && !u.emailVerified) { %>
+                  <form action="/admin/users/<%= u.id %>/verify-email" method="post" style="display:inline"
+                        onsubmit="return confirm('手动标记该账号邮箱已验证？');">
+                    <button type="submit" class="button button-secondary">标记已验证</button>
+                  </form>
+                  <% } %>
+                  <form action="/admin/users/<%= u.id %>/credit" method="post" style="display:inline" onsubmit="var v=prompt('调整金额（元，负数表示扣减）：', '10'); if(v===null) return false; this.amount.value=v;">
+                    <input type="hidden" name="amount" value="">
+                    <input type="hidden" name="note" value="后台调整">
+                    <button type="submit" class="button button-secondary">充值</button>
                   </form>
                   <form action="/admin/users/<%= u.id %>/revoke-sessions" method="post" style="display:inline">
                     <button type="submit" class="button button-secondary">踢下线</button>

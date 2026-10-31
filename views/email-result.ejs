@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title><%= title %></title>
+  <link rel="stylesheet" href="/css/main.css?v=20260809a">
+  <style>
+    .auth-page { max-width: 24rem; margin: 3.5rem auto; padding: 0 1.25rem; }
+    .auth-page h1 { font-size: 1.3rem; margin-bottom: 0.6rem; }
+    .auth-page p { color: var(--muted); font-size: 0.9rem; line-height: 1.7; }
+    .auth-icon { font-size: 2.2rem; line-height: 1; margin-bottom: 0.6rem; }
+    .auth-icon.ok { color: var(--accent); }
+    .auth-icon.fail { color: #c0392b; }
+    .auth-page a.button { display: inline-block; margin-top: 1.2rem; padding: 0.6rem 1.4rem; border-radius: 6px; background: var(--accent); color: #fff; text-decoration: none; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <main class="auth-page">
+    <div class="auth-icon <%= ok ? 'ok' : 'fail' %>"><%= ok ? '✓' : '!' %></div>
+    <h1><%= title %></h1>
+    <p><%= message %></p>
+    <a class="button" href="<%= linkHref %>"><%= linkText %></a>
+  </main>
+</body>
+</html>

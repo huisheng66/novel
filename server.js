@@ -6,6 +6,8 @@ const adminRoutes = require('./routes/admin');
 const pageViewQueue = require('./lib/pageViewQueue');
 const cache = require('./lib/memoryCache');
 const analytics = require('./lib/analytics');
+const redis = require('./lib/redis');
+const rateLimitStore = require('./lib/rateLimitStore');
 const logger = require('./lib/logger');
 
 const app = express();
@@ -32,7 +34,9 @@ app.get('/healthz', (req, res) => {
   res.status(200).json({
     status: 'ok',
     queue: pageViewQueue.stats(),
-    cache: { size: cache.size() }
+    cache: { size: cache.size() },
+    redis: redis.getStatus(),
+    rateLimit: rateLimitStore.stats()
   });
 });
 
@@ -72,7 +76,12 @@ app.use((err, req, res, next) => {
   res.status(500).send('Server internal error');
 });
 
-initDB().then(() => {
+initDB().then(async () => {
+  // 可选后端：未配置 REDIS_URL 时 init 立即返回 false，不引入任何外部依赖。
+  // 订阅端只做本地清除 —— 广播由本进程的 cache.clear() 发起，回环会被 origin 过滤掉。
+  redis.onInvalidate(prefix => cache.clearLocal(prefix));
+  await redis.init();
+
   const server = app.listen(PORT, '0.0.0.0', () => {
     logger.info('Server started', { port: PORT, host: '0.0.0.0' });
   });
@@ -95,6 +104,7 @@ initDB().then(() => {
         logger.error('Failed to flush page view queue', { err });
       } finally {
         clearTimeout(forceExit);
+        await redis.close();
         process.exit(0);
       }
     });

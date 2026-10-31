@@ -1,0 +1,11 @@
+{
+  "name": "书库",
+  "short_name": "书库",
+  "start_url": "/app/",
+  "scope": "/app/",
+  "display": "standalone",
+  "background_color": "#FDFCFA",
+  "theme_color": "#B76E3C",
+  "lang": "zh-CN",
+  "description": "在线小说阅读器（直接对接 /api/v1）"
+}

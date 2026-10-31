@@ -5,16 +5,47 @@ const path = require('node:path');
 const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 const { File } = require('node:buffer');
+const mysql = require('mysql2/promise');
 
 const CHAPTER_ACCEPT_BYTES = 22 * 1024 * 1024;
 const CHAPTER_REJECT_BYTES = 31 * 1024 * 1024;
 const COVER_ACCEPT_BYTES = 22 * 1024 * 1024;
 const COVER_REJECT_BYTES = 31 * 1024 * 1024;
 
+const SKIP_REASON = '需要可连接的 MySQL（DB_HOST/DB_USER/DB_PASSWORD），当前连不上，跳过集成测试';
+
 let serverProcess;
 let serverOutput = '';
 let baseUrl = '';
 let adminCookie = '';
+let dbAvailable = false;
+
+/** 这组用例会拉起真实服务，服务启动依赖 MySQL；连不上就跳过而不是判失败。 */
+async function canConnectDb() {
+  let conn;
+  try {
+    conn = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      port: Number(process.env.DB_PORT) || 3306,
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'novel',
+      connectTimeout: 3000
+    });
+    await conn.query('SELECT 1');
+    return true;
+  } catch (err) {
+    return false;
+  } finally {
+    if (conn) {
+      try {
+        await conn.end();
+      } catch (err) {
+        /* ignore */
+      }
+    }
+  }
+}
 
 async function getFreePort() {
   return await new Promise((resolve, reject) => {
@@ -154,6 +185,12 @@ function getRedirectError(response) {
 }
 
 test.before(async () => {
+  dbAvailable = await canConnectDb();
+  if (!dbAvailable) {
+    // 环境问题不应表现为测试失败：CI/新机器没起数据库时，这组用例标记为跳过
+    process.stderr.write(`[upload-limit] ${SKIP_REASON}\n`);
+    return;
+  }
   await startServer();
   await loginAsAdmin();
 });
@@ -162,25 +199,29 @@ test.after(async () => {
   await stopServer();
 });
 
-test('chapter upload accepts files smaller than 30MB', async () => {
+test('chapter upload accepts files smaller than 30MB', async (t) => {
+  if (!dbAvailable) return t.skip(SKIP_REASON);
   const response = await postChapterUpload(CHAPTER_ACCEPT_BYTES);
   assert.equal(response.status, 302);
   assert.equal(getRedirectError(response), '请先选择小说');
 });
 
-test('chapter upload rejects files larger than 30MB', async () => {
+test('chapter upload rejects files larger than 30MB', async (t) => {
+  if (!dbAvailable) return t.skip(SKIP_REASON);
   const response = await postChapterUpload(CHAPTER_REJECT_BYTES);
   assert.equal(response.status, 500);
   assert.match(await response.text(), /Server internal error/);
 });
 
-test('cover upload accepts files smaller than 30MB', async () => {
+test('cover upload accepts files smaller than 30MB', async (t) => {
+  if (!dbAvailable) return t.skip(SKIP_REASON);
   const response = await postCoverUpload(COVER_ACCEPT_BYTES);
   assert.equal(response.status, 302);
   assert.equal(getRedirectError(response), '小说不存在');
 });
 
-test('cover upload rejects files larger than 30MB', async () => {
+test('cover upload rejects files larger than 30MB', async (t) => {
+  if (!dbAvailable) return t.skip(SKIP_REASON);
   const response = await postCoverUpload(COVER_REJECT_BYTES);
   assert.equal(response.status, 302);
   assert.equal(getRedirectError(response), '封面图片不能超过 30MB');

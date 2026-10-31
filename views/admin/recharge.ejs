@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>充值码 - 后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/admin.css?v=20260809u">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <div>
+        <a href="/" class="site-name">阅读前台</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">充值码</span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main admin-token-main">
+    <section class="admin-titlebar">
+      <div>
+        <h1>充值码</h1>
+        <p>读者在「我的钱包」输入充值码即可到账，一码一次有效。用于内测发卡与人工收款，不依赖支付通道。</p>
+      </div>
+      <div class="admin-title-actions">
+        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
+        <a class="button button-secondary" href="/admin/users">读者账号</a>
+        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+        <a class="button button-secondary" href="/admin">章节管理</a>
+      </div>
+    </section>
+
+    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+
+    <% if (lastCodes && lastCodes.length) { %>
+      <section class="admin-block">
+        <div class="admin-section-title"><h2>刚生成的码（请复制发给读者）</h2></div>
+        <ul style="list-style:none;padding:0;margin:0;display:flex;flex-wrap:wrap;gap:0.5rem">
+          <% lastCodes.forEach(function(c) { %>
+            <li><code style="font-size:1rem;padding:0.35rem 0.6rem;background:var(--code-bg);border-radius:6px;user-select:all"><%= c %></code></li>
+          <% }) %>
+        </ul>
+      </section>
+    <% } %>
+
+    <section class="admin-block">
+      <div class="admin-section-title"><h2>批量生成</h2></div>
+      <form class="admin-form" action="/admin/recharge/generate" method="post">
+        <div class="admin-grid">
+          <label>
+            <span>面额（元）</span>
+            <input type="number" name="amount" value="10.00" min="0.01" step="0.01" required>
+          </label>
+          <label>
+            <span>数量</span>
+            <input type="number" name="count" value="1" min="1" max="100">
+          </label>
+          <label>
+            <span>备注（可选）</span>
+            <input type="text" name="note" placeholder="例如：内测第 1 批 / 某读者补单" maxlength="255">
+          </label>
+          <label>
+            <span>有效期（可选）</span>
+            <input type="datetime-local" name="expires_at">
+          </label>
+        </div>
+        <button class="button" type="submit">生成充值码</button>
+        <p style="color:var(--muted);font-size:0.85rem;margin:0.6rem 0 0">
+          新码为 42 位长随机密钥（160 位熵），支持 TXT 导出发给读者。
+        </p>
+      </form>
+    </section>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>导出 TXT</h2>
+        <span>一行一码，可直接发给读者或存档</span>
+      </div>
+      <div class="admin-title-actions" style="display:flex;gap:0.6rem">
+        <a class="button button-secondary" href="/admin/recharge/export.txt?status=unused">导出未使用</a>
+        <a class="button button-secondary" href="/admin/recharge/export.txt?status=used">导出已使用</a>
+        <a class="button button-secondary" href="/admin/recharge/export.txt?status=expired">导出已过期</a>
+      </div>
+    </section>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>列表（共 <%= total %>）</h2>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+          <a class="button button-secondary" href="/admin/recharge?status=unused">未使用</a>
+          <a class="button button-secondary" href="/admin/recharge?status=used">已使用</a>
+          <a class="button button-secondary" href="/admin/recharge?status=expired">已过期</a>
+          <a class="button button-secondary" href="/admin/recharge?status=all">全部</a>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>码</th>
+              <th>面额</th>
+              <th>状态</th>
+              <th>备注</th>
+              <th>创建时间</th>
+              <th>过期时间</th>
+              <th>使用者</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% items.forEach(function(rc) { %>
+              <tr>
+                <td class="admin-mono-cell"><code><%= rc.code %></code></td>
+                <td>¥<%= (rc.amount / 100).toFixed(2) %></td>
+                <td>
+                  <% if (rc.status === 'used') { %>已使用
+                  <% } else if (rc.status === 'expired') { %>已过期
+                  <% } else { %>未使用<% } %>
+                </td>
+                <td><%= rc.note || '-' %></td>
+                <td><%= new Date(rc.createdAt).toLocaleString('zh-CN') %></td>
+                <td><%= rc.expiresAt ? new Date(rc.expiresAt).toLocaleString('zh-CN') : '-' %></td>
+                <td><%= rc.usedBy || (rc.usedAt ? '已删除用户' : '-') %></td>
+                <td>
+                  <% if (rc.status === 'unused') { %>
+                    <form action="/admin/recharge/<%= rc.id %>/delete" method="post" style="display:inline"
+                          onsubmit="return confirm('删除未使用的充值码 <%= rc.code %>？');">
+                      <button class="button button-secondary" type="submit">删除</button>
+                    </form>
+                  <% } %>
+                </td>
+              </tr>
+            <% }) %>
+            <% if (items.length === 0) { %>
+              <tr><td colspan="8" class="admin-empty">暂无记录</td></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

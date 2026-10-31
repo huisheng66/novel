@@ -3,6 +3,7 @@
 const express = require('express');
 const { pool } = require('../db');
 const cache = require('../lib/memoryCache');
+const htmlCacheKey = require('../lib/htmlCacheKey');
 const { getBaseUrl } = require('../lib/util');
 const {
   buildReaderChapterTitle,
@@ -10,26 +11,24 @@ const {
   splitContentParagraphs
 } = require('../lib/chapterText');
 const { authenticateToken, recordPageView, getRiskStats } = require('./middleware/auth');
+const paywall = require('../lib/paywall');
+const entitlements = require('../lib/api/entitlements');
 const sourceRoutes = require('./source');
 const webAuthRoutes = require('./web-auth');
+const webWalletRoutes = require('./web-wallet');
+const webEmailRoutes = require('./web-email');
+const walletApi = require('../lib/api/wallet');
 
 const router = express.Router();
 
-// 缓存键按 Host 隔离：Host 头由客户端控制，若仅按路径缓存，恶意 Host 渲染出的页面
-// 会污染共享缓存并投毒给其他读者（CWE-644）。按 host 分键后投毒只影响同 Host 请求。
-function cacheHost(req) {
-  const host = String(req.get('host') || 'default')
-    .toLowerCase()
-    .replace(/[^a-z0-9.:-]/g, '_')
-    .slice(0, 64);
-  return host || 'default';
-}
-
 // Web 登录/注册（免 access_token；与 App 共用 users）
 router.use(webAuthRoutes);
+// 邮箱验证 / 忘记密码：必须在鉴权之前，忘记密码的人没有登录态
+router.use(webEmailRoutes);
 
 router.use(authenticateToken);
 router.use(recordPageView);
+router.use(webWalletRoutes);
 router.use(sourceRoutes);
 
 function sendHtml(res, html, cacheStatus) {
@@ -56,13 +55,17 @@ function renderAndCache(req, res, next, cacheKey, view, data) {
   });
 }
 
+function buildParagraphs(chapter) {
+  return mergeParagraphsForReader(splitContentParagraphs(chapter.content), 100);
+}
+
 function splitParagraphs(chapter) {
   // v3: 合并短段 + 阅读模式友好标题后的段落缓存
   const cacheKey = `paragraphs:v3:${chapter.id}`;
   const cached = cache.get(cacheKey);
   if (cached) return cached;
 
-  const paragraphs = mergeParagraphsForReader(splitContentParagraphs(chapter.content), 100);
+  const paragraphs = buildParagraphs(chapter);
   cache.set(cacheKey, paragraphs);
   return paragraphs;
 }
@@ -70,7 +73,7 @@ function splitParagraphs(chapter) {
 router.get('/', async (req, res, next) => {
   try {
     const allowedNovelId = req.accessToken && req.accessToken.allowedNovelId;
-    const cacheKey = `html:${cacheHost(req)}:home:${allowedNovelId || 'all'}`;
+    const cacheKey = htmlCacheKey.homeKey(htmlCacheKey.hostOf(req), allowedNovelId);
     if (sendCachedHtml(res, cacheKey)) return;
 
     const params = [];
@@ -98,7 +101,7 @@ router.get('/', async (req, res, next) => {
 
 router.get('/novel/:id', async (req, res, next) => {
   try {
-    const cacheKey = `html:${cacheHost(req)}:novel:${req.params.id}`;
+    const cacheKey = htmlCacheKey.novelKey(htmlCacheKey.hostOf(req), req.params.id);
     if (sendCachedHtml(res, cacheKey)) return;
 
     const [[novel]] = await pool.execute(
@@ -113,7 +116,16 @@ router.get('/novel/:id', async (req, res, next) => {
       [req.params.id]
     );
 
-    renderAndCache(req, res, next, cacheKey, 'novel', { novel, chapters, baseUrl: getBaseUrl(req) });
+    // 目录页可以共享缓存：付费标记只依赖书籍规则，与读者身份无关
+    const rule = await paywall.resolveRule(req.params.id);
+    const overrides = await paywall.getOverrides(req.params.id);
+
+    renderAndCache(req, res, next, cacheKey, 'novel', {
+      novel,
+      chapters,
+      baseUrl: getBaseUrl(req),
+      paywall: { enabled: rule.enabled, freeUntil: rule.freeUntil, overrides }
+    });
   } catch (err) {
     next(err);
   }
@@ -122,10 +134,15 @@ router.get('/novel/:id', async (req, res, next) => {
 router.get('/novel/:id/:chapterNum', async (req, res, next) => {
   try {
     const { id, chapterNum } = req.params;
+    const userId = req.webUser && req.webUser.id ? Number(req.webUser.id) : null;
 
-    // 缓存键用 novelId+章号：命中时不必先读 LONGTEXT
-    const cacheKey = `html:${cacheHost(req)}:chapter:v4:${id}:${chapterNum}`;
-    if (sendCachedHtml(res, cacheKey)) return;
+    // 先判定「这一章是否可能收费」：可能收费的章节既不读共享缓存，也绝不写入。
+    // 缓存键只含 host/书号/章号，不含身份 —— 一旦把付费正文写进去，就等于对所有人生效。
+    const chapterRule = await paywall.getChapterRule(id, chapterNum);
+    const mightBePaid = paywall.mayBePaid(chapterRule.rule, chapterNum, chapterRule.overrides);
+
+    const cacheKey = htmlCacheKey.chapterKey(htmlCacheKey.hostOf(req), id, chapterNum);
+    if (!mightBePaid && sendCachedHtml(res, cacheKey)) return;
 
     // 未命中：小说元信息 / 正文 / 上下章并行查询
     const [[novelRows], [chapterRows], [prevRows], [nextRows]] = await Promise.all([
@@ -153,15 +170,49 @@ router.get('/novel/:id/:chapterNum', async (req, res, next) => {
     const chapter = chapterRows[0];
     if (!chapter) return res.status(404).render('404', { url: req.originalUrl });
 
-    chapter.paragraphs = splitParagraphs(chapter);
     chapter.readerTitle = buildReaderChapterTitle(chapter.chapter_number, chapter.title);
 
+    const prevChapter = prevRows[0] || null;
+    const nextChapter = nextRows[0] || null;
+    const baseUrl = getBaseUrl(req);
+
+    if (mightBePaid) {
+      const access = await entitlements.getChapterAccess({ userId, novelId: id, chapterNumber: chapterNum });
+
+      // 付费章节：始终按人渲染、禁止任何中间层缓存（含 CDN 与浏览器历史）
+      res.set('Cache-Control', 'private, no-store');
+
+      if (!access.allowed) {
+        // 登录用户带上余额，解锁卡片可以直接给出「买得起/需充值」的判断
+        const wallet = userId ? await walletApi.getWallet(userId) : null;
+
+        return res.render('chapter-locked', {
+          novel,
+          chapter,
+          prevChapter,
+          nextChapter,
+          baseUrl,
+          price: access.price,
+          teaser: paywall.teaserOf(chapter.content, 400),
+          loggedIn: Boolean(userId),
+          balance: wallet ? wallet.balance : null,
+          notice: req.query.notice || '',
+          error: req.query.error || ''
+        });
+      }
+
+      // 有权益：正文只为本人生成，段落也不进共享缓存
+      chapter.paragraphs = buildParagraphs(chapter);
+      return res.render('chapter', { novel, chapter, prevChapter, nextChapter, baseUrl });
+    }
+
+    chapter.paragraphs = splitParagraphs(chapter);
     renderAndCache(req, res, next, cacheKey, 'chapter', {
       novel,
       chapter,
-      prevChapter: prevRows[0] || null,
-      nextChapter: nextRows[0] || null,
-      baseUrl: getBaseUrl(req)
+      prevChapter,
+      nextChapter,
+      baseUrl
     });
   } catch (err) {
     next(err);

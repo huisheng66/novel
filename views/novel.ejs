@@ -72,9 +72,17 @@
           <% chapters.forEach(function(ch) {
             var n = ch.chapter_number;
             var numStr = n < 10 ? ('0' + n) : String(n);
+            // 付费标记只依赖书籍规则，与读者身份无关，因此可以进共享缓存
+            var isPaid = false;
+            if (typeof paywall !== 'undefined' && paywall && paywall.enabled) {
+              var ov = paywall.overrides && paywall.overrides.get ? paywall.overrides.get(n) : null;
+              if (ov && (ov.isFree === 0 || ov.isFree === false)) isPaid = true;
+              else if (ov && (ov.isFree === 1 || ov.isFree === true)) isPaid = false;
+              else isPaid = n > paywall.freeUntil;
+            }
           %>
-            <li data-n="<%= n %>">
-              <a href="/novel/<%= novel.id %>/<%= n %>"><span class="ch-num"><%= numStr %></span><%= ch.title %></a>
+            <li data-n="<%= n %>"<%= isPaid ? ' class="is-paid"' : '' %>>
+              <a href="/novel/<%= novel.id %>/<%= n %>"><span class="ch-num"><%= numStr %></span><%= ch.title %><% if (isPaid) { %><span class="chapter-lock">付费</span><% } %></a>
             </li>
           <% }) %>
           <% if (chapters.length === 0) { %>

@@ -10,6 +10,7 @@ const {
   deleteUser
 } = require('../../lib/api/users');
 const { ApiError } = require('../../lib/api/errors');
+const { adminAdjust } = require('../../lib/api/wallet');
 const { toPositiveInt } = require('./shared');
 
 const router = express.Router();
@@ -45,6 +46,7 @@ router.post('/users', async (req, res, next) => {
   try {
     await createUserAdmin({
       username: req.body.username,
+      email: req.body.email,
       password: req.body.password,
       displayName: req.body.displayName,
       isActive: req.body.is_active !== '0'
@@ -89,6 +91,25 @@ router.post('/users/:id/revoke-sessions', async (req, res, next) => {
     if (!id) return res.redirect(`/admin/users${q('', '无效用户')}`);
     const result = await revokeUserSessions(id);
     res.redirect(`/admin/users${q(`已踢下线（${result.deleted} 个会话）`)}`);
+  } catch (err) {
+    if (err instanceof ApiError) return res.redirect(`/admin/users${q('', err.message)}`);
+    next(err);
+  }
+});
+
+/** 后台直接调整余额（元 → 分），用于客服补偿与内测 */
+router.post('/users/:id/credit', async (req, res, next) => {
+  try {
+    const id = toPositiveInt(req.params.id);
+    if (!id) return res.redirect(`/admin/users${q('', '无效用户')}`);
+
+    const yuan = Number(req.body.amount);
+    if (!Number.isFinite(yuan) || yuan === 0) {
+      return res.redirect(`/admin/users${q('', '请输入非零金额（元，负数表示扣减）')}`);
+    }
+
+    const result = await adminAdjust(id, Math.round(yuan * 100), req.body.note || '后台调整');
+    res.redirect(`/admin/users${q(`余额已更新，当前 ¥${(result.balance / 100).toFixed(2)}`)}`);
   } catch (err) {
     if (err instanceof ApiError) return res.redirect(`/admin/users${q('', err.message)}`);
     next(err);

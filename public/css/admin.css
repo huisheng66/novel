@@ -841,6 +841,7 @@
 .admin-trend-bar.page-views { background: #4c6ef5; }
 .admin-trend-bar.sessions { background: #20c997; }
 .admin-trend-bar.users { background: #f08c00; }
+.admin-trend-bar.readers { background: #ae3ec9; }
 .admin-trend-bar.ips { background: #868e96; }
 
 .admin-trend-col span {
@@ -874,6 +875,7 @@
 .admin-legend i.page-views { background: #4c6ef5; }
 .admin-legend i.sessions { background: #20c997; }
 .admin-legend i.users { background: #f08c00; }
+.admin-legend i.readers { background: #ae3ec9; }
 .admin-legend i.ips { background: #868e96; }
 
 .admin-metric-list {
@@ -1353,4 +1355,16 @@
   .admin-form textarea {
     font-size: 16px; /* 避免 iOS 聚焦时整页缩放 */
   }
+}
+
+/* 付费设置：每行一个内联表单 */
+.paywall-row-form {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.paywall-row-form input[type="number"] {
+  width: 6.5rem;
 }

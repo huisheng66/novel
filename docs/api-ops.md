@@ -1,6 +1,6 @@
 # App API 运维：备份、迁移与回滚
 
-> 适用分支：`app`（含 `/api/v1` 与 SCHEMA ≥ 3）  
+> 适用分支：`app`（含 `/api/v1` 与 SCHEMA ≥ 10）  
 > Web SSR / Legado 与 API 共用同一 MySQL。
 
 ## 1. 升级前备份
@@ -33,7 +33,20 @@ mysqldump -u root -p --no-tablespaces --single-transaction novel \
 - 读 `schema_version`  
 - 若 `< SCHEMA_VERSION` 则跑增量迁移并写入版本号  
 
-当前目标版本：**4**（v3 + 书签/笔记、platform_settings、device_subscriptions）。
+当前目标版本：**10**
+
+| 版本 | 内容 |
+|------|------|
+| v3 | 读者体系：users / user_sessions / bookshelf / reading_progress，novels·chapters 同步字段 |
+| v4 | 书签笔记 reading_bookmarks、运营 platform_settings、设备订阅 device_subscriptions |
+| v5 | 一次一码邀请码 invite_codes |
+| v6 | 访问日志区分令牌与登录读者：`page_views.user_id`、`analytics_daily/totals.readers` |
+| v7 | `updated_at` 归一化（回填 NULL），增量查询可走索引 |
+| v8 | 章节付费分层：`chapters.is_free/price`、`novel_paywall`、`chapter_orders` |
+| v9 | 钱包与充值：`user_wallets`、`wallet_transactions`、`recharge_codes` |
+| v10 | 邮箱验证与找回密码：`users.email_verified_at`、`email_tokens` |
+
+迁移按版本增量执行：`db.js` 的 `MIGRATIONS` 数组列出每档迁移，启动时只跑 `schema_version` 尚未记录的项。新增迁移请在数组末尾追加，不要改动已有项。
 
 ```bash
 # 部署后确认

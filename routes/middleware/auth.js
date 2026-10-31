@@ -521,9 +521,13 @@ async function authenticateToken(req, res, next) {
 }
 
 // 统计中间件:记录访客信息与页面访问(仅在鉴权通过后执行)
+// 两类身份都统计：站点 Access Token（匿名只读读者）与登录读者（JWT / users 账号）。
+// 此前只统计前者，导致看板只反映持令牌的流量。
 async function recordPageView(req, res, next) {
   try {
-    if (!req.accessTokenId) {
+    const accessTokenId = req.accessTokenId || null;
+    const userId = req.webUser && req.webUser.id ? Number(req.webUser.id) : null;
+    if (!accessTokenId && !userId) {
       return next();
     }
 
@@ -553,7 +557,8 @@ async function recordPageView(req, res, next) {
 
     pageViewQueue.enqueue({
       visitorUid,
-      accessTokenId: req.accessTokenId,
+      accessTokenId,
+      userId,
       sessionId,
       visitorIp,
       userAgent,

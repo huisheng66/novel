@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>我的钱包 - 余额与充值</title>
+  <link rel="stylesheet" href="/css/main.css?v=20260807f">
+</head>
+<body>
+  <header id="site-header">
+    <div class="header-inner">
+      <span class="header-crumbs">
+        <a href="/">书架</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">我的钱包</span>
+      </span>
+      <span class="header-actions">
+        <a class="header-shelf" href="/">返回书架</a>
+      </span>
+    </div>
+  </header>
+
+  <main class="wallet-main">
+    <% if (notice) { %><div class="wallet-alert wallet-alert-ok"><%= notice %></div><% } %>
+    <% if (error) { %><div class="wallet-alert wallet-alert-error"><%= error %></div><% } %>
+
+    <section class="wallet-card">
+      <p class="wallet-label">当前余额</p>
+      <p class="wallet-balance">¥<%= yuan(wallet.balance) %></p>
+      <p class="wallet-user"><%= webUser.displayName || webUser.username %></p>
+    </section>
+
+    <% if (webUser.email && !webUser.emailVerified) { %>
+      <section class="wallet-card">
+        <h2 class="wallet-h2">邮箱未验证</h2>
+        <p class="wallet-hint" style="margin-top:0">
+          <%= webUser.email %> 还没有验证。验证后可用于找回密码；若站点要求验证后才能登录或购买，必须先完成验证。
+        </p>
+        <form class="wallet-form" action="/verify-email/resend" method="post">
+          <button type="submit">重新发送验证邮件</button>
+        </form>
+      </section>
+    <% } %>
+
+    <section class="wallet-card">
+      <h2 class="wallet-h2">兑换码充值</h2>
+      <form class="wallet-form" action="/wallet/redeem" method="post">
+        <input type="text" name="code" placeholder="输入兑换码（支持粘贴长码）" autocomplete="off" required maxlength="64">
+        <button type="submit">立即充值</button>
+      </form>
+      <p class="wallet-hint">兑换码由站长发放，一码一次有效。</p>
+    </section>
+
+    <section class="wallet-card">
+      <h2 class="wallet-h2">消费记录</h2>
+      <% if (transactions.length === 0) { %>
+        <p class="wallet-hint">还没有余额变动记录。</p>
+      <% } else { %>
+        <div class="wallet-table-wrap">
+          <table class="wallet-table">
+            <thead>
+              <tr><th>时间</th><th>类型</th><th>金额</th><th>余额</th><th>备注</th></tr>
+            </thead>
+            <tbody>
+              <% transactions.forEach(function(tx) { %>
+                <tr>
+                  <td><%= new Date(tx.createdAt).toLocaleString('zh-CN') %></td>
+                  <td><%= tx.type === 'recharge' ? '充值' : (tx.type === 'purchase' ? '购买' : '调整') %></td>
+                  <td class="<%= tx.delta < 0 ? 'wallet-out' : 'wallet-in' %>">
+                    <%= tx.delta < 0 ? '-' : '+' %>¥<%= yuan(Math.abs(tx.delta)) %>
+                  </td>
+                  <td>¥<%= yuan(tx.balanceAfter) %></td>
+                  <td><%= tx.note || tx.ref || '-' %></td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+
+    <section class="wallet-card">
+      <h2 class="wallet-h2">已购章节</h2>
+      <% if (purchases.length === 0) { %>
+        <p class="wallet-hint">还没有购买过章节。</p>
+      <% } else { %>
+        <ul class="wallet-purchase-list">
+          <% purchases.forEach(function(item) { %>
+            <li>
+              <a href="/novel/<%= item.novelId %>/<%= item.chapterNumber %>">书 <%= item.novelId %> · 第 <%= item.chapterNumber %> 章</a>
+              <span>¥<%= yuan(item.amount) %></span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </section>
+  </main>
+</body>
+</html>

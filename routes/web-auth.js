@@ -8,6 +8,7 @@ const {
   logoutSession
 } = require('../lib/api/users');
 const { ApiError } = require('../lib/api/errors');
+const emailApi = require('../lib/api/email');
 const {
   WEB_JWT_COOKIE,
   WEB_JWT_COOKIE_OPTS,
@@ -16,11 +17,13 @@ const {
 
 const router = express.Router();
 
-// ---- 登录/注册防爆破：进程内滑动窗口，按真实对端地址计数 ----
+// ---- 登录/注册防爆破：滑动窗口，按真实对端地址计数 ----
 // （不信任客户端可控的 X-Forwarded-For；见 lib/api/rateLimit.js 的说明）
+// 计数后端由 lib/rateLimitStore.js 决定：默认进程内，配置 REDIS_URL 后多实例共享。
+const rateLimitStore = require('../lib/rateLimitStore');
+
 const WEB_LOGIN_MAX = 10; // 10 次 / 15 分钟
 const WEB_LOGIN_WINDOW_MS = 15 * 60 * 1000;
-const webLoginWindows = new Map();
 
 function clientIp(req) {
   // req.ip 受 Express trust proxy 控制：未配置 TRUST_PROXY 时为 socket 对端地址，不可伪造
@@ -28,50 +31,16 @@ function clientIp(req) {
   return String(ip).slice(0, 64) || 'unknown';
 }
 
-function webLoginLimited(req) {
-  const now = Date.now();
-  const key = `web-login:${clientIp(req)}`;
-  const list = webLoginWindows.get(key) || [];
-  while (list.length && list[0] <= now - WEB_LOGIN_WINDOW_MS) list.shift();
-  if (list.length >= WEB_LOGIN_MAX) return true;
-  list.push(now);
-  webLoginWindows.set(key, list);
-  return false;
+async function webLoginLimited(req) {
+  const result = await rateLimitStore.consume(`web-login:${clientIp(req)}`, {
+    max: WEB_LOGIN_MAX,
+    windowMs: WEB_LOGIN_WINDOW_MS
+  });
+  return !result.allowed;
 }
 
-// 定期清理过期窗口，避免内存泄漏
-const webLoginCleanupTimer = setInterval(() => {
-  const cutoff = Date.now() - WEB_LOGIN_WINDOW_MS;
-  for (const [key, list] of webLoginWindows) {
-    if (!list.length || list[list.length - 1] <= cutoff) webLoginWindows.delete(key);
-  }
-}, WEB_LOGIN_WINDOW_MS);
-if (webLoginCleanupTimer.unref) webLoginCleanupTimer.unref();
-
-// ---- 登录 CSRF 防护：校验 Origin / Sec-Fetch-Site ----
-// SameSite=Lax 挡不住跨站表单 POST（浏览器对表单 POST 不发送同站限制），需服务端校验来源。
-function rejectCrossSite(req, res, next) {
-  const origin = String(req.headers.origin || '').trim();
-  const secFetchSite = String(req.headers['sec-fetch-site'] || '').trim().toLowerCase();
-
-  if (origin) {
-    try {
-      const originHost = new URL(origin).host;
-      const host = String(req.headers.host || '').toLowerCase();
-      if (originHost.toLowerCase() !== host) {
-        return res.status(403).send('拒绝跨站请求（CSRF 防护）');
-      }
-    } catch (err) {
-      return res.status(403).send('拒绝非法来源请求');
-    }
-  }
-
-  if (secFetchSite && ['same-origin', 'same-site', 'none'].indexOf(secFetchSite) === -1) {
-    return res.status(403).send('拒绝跨站请求（CSRF 防护）');
-  }
-
-  next();
-}
+// ---- 登录 CSRF 防护：校验 Origin / Sec-Fetch-Site（实现见 lib/csrf.js）----
+const { rejectCrossSite } = require('../lib/csrf');
 
 function sanitizeNext(next) {
   const raw = String(next || '/').trim() || '/';
@@ -111,13 +80,14 @@ router.get('/login', async (req, res) => {
 });
 
 router.post('/login', rejectCrossSite, async (req, res) => {
-  if (webLoginLimited(req)) {
+  if (await webLoginLimited(req)) {
     return res.status(429).send('登录尝试过于频繁，请 15 分钟后再试');
   }
   const nextPath = sanitizeNext(req.body.next);
   try {
     const result = await loginUser({
-      username: req.body.username,
+      // 表单字段沿用 email，但允许填用户名（含 @ 视为邮箱）
+      login: req.body.email || req.body.username,
       password: req.body.password,
       deviceName: 'web',
       userAgent: String(req.headers['user-agent'] || '').slice(0, 255)
@@ -157,7 +127,7 @@ router.get('/register', async (req, res) => {
 });
 
 router.post('/register', rejectCrossSite, async (req, res) => {
-  if (webLoginLimited(req)) {
+  if (await webLoginLimited(req)) {
     return res.status(429).send('操作过于频繁，请 15 分钟后再试');
   }
   const nextPath = sanitizeNext(req.body.next);
@@ -166,19 +136,26 @@ router.post('/register', rejectCrossSite, async (req, res) => {
   }
   try {
     const result = await registerUser({
+      email: req.body.email,
       username: req.body.username,
       password: req.body.password,
-      displayName: req.body.displayName || req.body.username,
+      displayName: req.body.displayName,
+      // 邀请码可选：留空即普通注册
       inviteCode: req.body.inviteCode || req.body.invite_code,
       deviceName: 'web',
       userAgent: String(req.headers['user-agent'] || '').slice(0, 255)
     });
+    // 发验证邮件（未配置 SMTP 时降级为写日志，不影响注册）
+    const sent = await emailApi.maybeSendVerification(result.user, emailApi.resolveBaseUrl(req));
+
     res.cookie(WEB_JWT_COOKIE, result.accessToken, WEB_JWT_COOKIE_OPTS);
     return renderBridge(res, {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       nextPath,
-      notice: '注册成功，正在跳转…'
+      notice: sent && sent.delivered
+        ? '注册成功，验证邮件已发送，请查收'
+        : '注册成功，正在跳转…'
     });
   } catch (err) {
     const msg = err instanceof ApiError ? err.message : '注册失败';

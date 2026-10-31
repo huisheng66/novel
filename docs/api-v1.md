@@ -30,6 +30,9 @@ API 版本响应头: `X-API-Version: 1`
 | `CONFLICT` | 409 | 冲突（如用户名占用） |
 | `REGISTER_DISABLED` | 403 | 关闭注册 |
 | `RATE_LIMITED` | 429 | 触发限流（见 `Retry-After`） |
+| `PAYMENT_REQUIRED` | 402 | 该章为付费章节且未购买 |
+| `INSUFFICIENT_BALANCE` | 402 | 余额不足（`balance` / `required` / `shortfall`） |
+| `EMAIL_NOT_VERIFIED` | 403 | 邮箱未验证（站点开启强制验证时） |
 | `INTERNAL` | 500 | 服务器错误 |
 
 ## 鉴权
@@ -51,24 +54,33 @@ Body:
 
 ```json
 {
-  "username": "alice",
+  "email": "alice@example.com",
   "password": "secret12",
   "displayName": "Alice",
   "inviteCode": "INV-A1B2C3D4"
 }
 ```
 
-- `username`: 3–32，字母数字下划线  
-- `password`: 至少 8 位  
-- `inviteCode`：**必填**，后台「邀请码」生成的一次一码；用后即废  
-- 受 `API_REGISTER_ENABLED` 控制（默认开发开启）；关闭后仅能后台建号  
+- `email`：**主标识**，做形态校验并统一小写；唯一
+- `password`：至少 8 位
+- `displayName`：可选，缺省取邮箱前缀
+- `username`：可选（兼容老客户端）。不传则按邮箱前缀自动生成（`li.lei@x.com` → `li_lei`），
+  重名自动加随机后缀；合法字符 3–32 位字母数字下划线
+- `inviteCode`：**选填**。填了就必须有效（一次一码，用后即废）；不填直接注册成功
+- 受 `API_REGISTER_ENABLED` 控制（默认开启）；关闭后仅能后台建号
+
+> 注册成功后会自动发送验证邮件（`emailVerificationSent` 标记是否真的发出）。
+> 站点若开启「未验证禁止登录/购买」，未验证账号的登录与购买会返回 `403 EMAIL_NOT_VERIFIED`。
+> 邮箱验证与找回密码在 **Web 端**完成（`/verify-email`、`/forgot-password`），App 可通过浏览器打开。
 
 响应 `201`：同 login。
 
 ### `POST /auth/login`
 
+`login` 可填**邮箱或用户名**（含 `@` 视为邮箱）；也兼容 `email` / `username` 字段名。
+
 ```json
-{ "username": "alice", "password": "secret12", "deviceName": "Pixel" }
+{ "login": "alice@example.com", "password": "secret12", "deviceName": "Pixel" }
 ```
 
 响应 `200`:
@@ -204,8 +216,66 @@ Body:
 }
 ```
 
-响应头：`ETag: "<contentHash>"`，`Cache-Control: private, max-age=60`。  
+响应头：`ETag: "<contentHash>"`，`Cache-Control: private, max-age=60`（付费章节为 `private, no-store`）。  
 `If-None-Match` 支持：`"hash"`、`W/"hash"`、裸 hash、多值逗号分隔；匹配则 **304**。
+
+### 付费章节
+
+目录项带 `isFree` / `price`（单位：分）；书籍付费时额外返回 `paywall.freeUntilChapter`。
+
+```json
+{
+  "novelId": 10,
+  "paywall": { "freeUntilChapter": 20 },
+  "items": [
+    { "id": 9001, "chapterNumber": 1, "title": "第一章 …", "isFree": true,  "price": 0 },
+    { "id": 9021, "chapterNumber": 21, "title": "第二十一章 …", "isFree": false, "price": 10 }
+  ]
+}
+```
+
+未购买时读取正文返回 **402**，并给出价格与试读片段，客户端可直接渲染半屏内容：
+
+```json
+{
+  "error": {
+    "code": "PAYMENT_REQUIRED",
+    "message": "这一章需要购买后才能阅读",
+    "novelId": 10,
+    "chapterNumber": 21,
+    "price": 10,
+    "teaser": "……前 400 字……"
+  }
+}
+```
+
+注意：**站点 Access Token 没有读者身份**，一律按「未购买」处理——书源与分享链接读不到付费章节。
+
+## 钱包与购买
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/me/wallet` | 余额 + 最近 20 条流水 |
+| POST | `/me/wallet/redeem` | 兑换码充值（限流 10 次/分钟/用户+IP） |
+| GET | `/me/purchases?novelId=` | 已购章节 |
+| POST | `/me/purchases` | 购买单章（幂等） |
+
+```json
+// GET /me/wallet
+{ "balance": 90, "updatedAt": "…", "transactions": [
+  { "id": 12, "delta": -10, "balanceAfter": 90, "type": "purchase", "note": "购买第 3 章", "createdAt": "…" }
+] }
+
+// POST /me/wallet/redeem  { "code": "RC-XXXXXXXX" }
+{ "amount": 100, "balance": 190 }
+
+// POST /me/purchases  { "novelId": 1, "chapterNumber": 3 }
+// 首次 201，已购 200
+{ "novelId": 1, "chapterNumber": 3, "alreadyOwned": false, "amount": 10, "balance": 90 }
+```
+
+余额单位是**分**（与 `price` 一致）。购买在同一事务内完成「校验规则 → 扣款 → 下单 → 记流水」，
+余额不足返回 402 且不会留下订单；重复/并发购买由 `(user_id, novel_id, chapter_number)` 唯一键保证只扣一次。
 
 ## 书架
 
@@ -481,4 +551,4 @@ API_RATE_LIMIT_PROGRESS_BATCH_WINDOW_MS=60000
 API_OPS_ADMIN_KEY=
 ```
 
-生产备份与 SCHEMA 迁移见 [api-ops.md](./api-ops.md)。SCHEMA 当前目标版本 **4**。
+生产备份与 SCHEMA 迁移见 [api-ops.md](./api-ops.md)。SCHEMA 当前目标版本 **10**。

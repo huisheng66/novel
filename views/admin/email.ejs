@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>邮件与验证 - 后台管理</title>
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="stylesheet" href="/css/admin.css?v=20260809u">
+</head>
+<body class="admin-body">
+  <header id="site-header" class="admin-header">
+    <div class="header-inner admin-header-inner">
+      <div>
+        <a href="/" class="site-name">阅读前台</a>
+        <span class="breadcrumb"> / </span>
+        <span class="breadcrumb-current">邮件与验证</span>
+      </div>
+      <form action="/admin/logout" method="post">
+        <button type="submit">退出登录</button>
+      </form>
+    </div>
+  </header>
+
+  <main class="admin-main admin-token-main">
+    <section class="admin-titlebar">
+      <div>
+        <h1>邮件与邮箱验证</h1>
+        <p>SMTP 配置走环境变量（改完需重启）；是否强制验证、注册是否发信在这里调，保存即生效。</p>
+      </div>
+      <div class="admin-title-actions">
+        <a class="button button-secondary" href="/admin/users">读者账号</a>
+        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
+        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+      </div>
+    </section>
+
+    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>发信配置</h2>
+        <span><%= smtp.configured ? '已配置' : '未配置（验证链接会写入服务端日志）' %></span>
+      </div>
+
+      <% if (smtp.configured) { %>
+        <ul class="admin-metric-list">
+          <li><span>SMTP 主机</span><strong><%= smtp.host %>:<%= smtp.port %></strong></li>
+          <li><span>TLS（secure）</span><strong><%= smtp.secure ? '是' : '否（STARTTLS）' %></strong></li>
+          <li><span>发件人</span><strong><%= smtp.from %></strong></li>
+        </ul>
+      <% } else { %>
+        <p style="color:var(--muted);font-size:0.9rem;line-height:1.8;margin:0">
+          在 <code>.env</code> 里设置以下变量后重启服务即可真实发信：<br>
+          <code>SMTP_HOST</code>、<code>SMTP_PORT</code>（默认 587）、<code>SMTP_USER</code>、<code>SMTP_PASS</code>、
+          <code>MAIL_FROM</code>（可选）、<code>PUBLIC_BASE_URL</code>（邮件里的链接域名，建议设置）。<br>
+          未配置时不影响注册与找回密码流程：验证/重置链接会写到服务端日志，可手动复制发给用户。
+        </p>
+      <% } %>
+
+      <form class="admin-form" action="/admin/email/test" method="post" style="margin-top:1rem">
+        <div class="admin-grid">
+          <label>
+            <span>发送测试邮件到</span>
+            <input type="email" name="to" placeholder="you@example.com" required>
+          </label>
+        </div>
+        <button class="button button-secondary" type="submit">发送测试</button>
+      </form>
+    </section>
+
+    <section class="admin-block">
+      <div class="admin-section-title">
+        <h2>验证策略</h2>
+        <span>
+          账号 <%= stats.total %> 个 · 绑定邮箱 <%= stats.withEmail %> · 已验证 <%= stats.verified %>
+        </span>
+      </div>
+
+      <form class="admin-form" action="/admin/email/settings" method="post">
+        <div class="admin-grid">
+          <label>
+            <span>注册后发送验证邮件</span>
+            <select name="on_register">
+              <option value="1" <%= settings.verifyOnRegister ? 'selected' : '' %>>发送</option>
+              <option value="0" <%= settings.verifyOnRegister ? '' : 'selected' %>>不发送</option>
+            </select>
+          </label>
+          <label>
+            <span>未验证禁止登录</span>
+            <select name="required_login">
+              <option value="0" <%= settings.requiredForLogin ? '' : 'selected' %>>允许登录（推荐）</option>
+              <option value="1" <%= settings.requiredForLogin ? 'selected' : '' %>>禁止登录</option>
+            </select>
+          </label>
+          <label>
+            <span>未验证禁止购买</span>
+            <select name="required_purchase">
+              <option value="0" <%= settings.requiredForPurchase ? '' : 'selected' %>>允许购买</option>
+              <option value="1" <%= settings.requiredForPurchase ? 'selected' : '' %>>禁止购买</option>
+            </select>
+          </label>
+        </div>
+        <p style="color:var(--muted);font-size:0.85rem;margin:0 0 0.75rem">
+          两个「禁止」只对<strong>填了邮箱但没验证</strong>的账号生效；没有邮箱的账号（后台建号）不受影响。
+          邮件发不出去时，可在「读者账号」页手动标记已验证。
+        </p>
+        <button class="button" type="submit">保存设置</button>
+      </form>
+    </section>
+  </main>
+</body>
+</html>

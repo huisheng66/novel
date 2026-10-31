@@ -15,7 +15,7 @@ function localDayKey(offsetDays = 0) {
 async function getDashboardMetrics() {
   // 全站去重汇总（定时全表聚合写入，看板 O(1) 读取）
   const [[totals]] = await pool.execute(`
-    SELECT page_views, sessions, users, unique_ips, novel_views, chapter_views, updated_at
+    SELECT page_views, sessions, users, readers, unique_ips, novel_views, chapter_views, updated_at
     FROM analytics_totals
     WHERE id = 1
     LIMIT 1
@@ -28,6 +28,7 @@ async function getDashboardMetrics() {
       page_views: Number(totals.page_views || 0),
       sessions: Number(totals.sessions || 0),
       users: Number(totals.users || 0),
+      readers: Number(totals.readers || 0),
       unique_ips: Number(totals.unique_ips || 0),
       novels_viewed: Number(totals.novel_views || 0),
       chapters_viewed: Number(totals.chapter_views || 0),
@@ -39,6 +40,7 @@ async function getDashboardMetrics() {
         COALESCE(SUM(page_views), 0) AS page_views,
         COALESCE(SUM(sessions), 0) AS sessions,
         COALESCE(SUM(users), 0) AS users,
+        COALESCE(SUM(readers), 0) AS readers,
         COALESCE(SUM(unique_ips), 0) AS unique_ips,
         COALESCE(SUM(novel_views), 0) AS novels_viewed,
         COALESCE(SUM(chapter_views), 0) AS chapters_viewed
@@ -48,6 +50,7 @@ async function getDashboardMetrics() {
       page_views: 0,
       sessions: 0,
       users: 0,
+      readers: 0,
       unique_ips: 0,
       novels_viewed: 0,
       chapters_viewed: 0
@@ -60,6 +63,7 @@ async function getDashboardMetrics() {
       page_views,
       sessions,
       users,
+      readers,
       unique_ips
     FROM analytics_daily
     WHERE stat_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
@@ -76,6 +80,7 @@ async function getDashboardMetrics() {
       page_views: Number(row.page_views || 0),
       sessions: Number(row.sessions || 0),
       users: Number(row.users || 0),
+      readers: Number(row.readers || 0),
       unique_ips: Number(row.unique_ips || 0)
     });
   }
@@ -127,6 +132,7 @@ async function getDashboardMetrics() {
         ELSE pv.visitor_ip
       END AS visitor_ip,
       MAX(t.name) AS user_name,
+      MAX(u.username) AS reader_name,
       COUNT(*) AS page_views,
       COUNT(DISTINCT pv.session_id) AS sessions,
       COUNT(DISTINCT pv.path) AS paths,
@@ -139,6 +145,7 @@ async function getDashboardMetrics() {
       DATE_FORMAT(MAX(pv.created_at), '%Y-%m-%d %H:%i:%s') AS last_seen
     FROM page_views pv
     LEFT JOIN access_tokens t ON t.id = pv.access_token_id
+    LEFT JOIN users u ON u.id = pv.user_id
     WHERE pv.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)
     GROUP BY pv.visitor_uid, visitor_ip
     ORDER BY page_views DESC, last_seen DESC
@@ -158,10 +165,12 @@ async function getDashboardMetrics() {
       pv.path,
       pv.novel_id,
       pv.chapter_id,
+      u.username AS reader_name,
       n.title AS novel_title,
       c.title AS chapter_title,
       c.chapter_number
     FROM page_views pv
+    LEFT JOIN users u ON u.id = pv.user_id
     LEFT JOIN novels n ON n.id = pv.novel_id
     LEFT JOIN chapters c ON c.novel_id = pv.novel_id AND c.chapter_number = pv.chapter_id
     ORDER BY pv.created_at DESC

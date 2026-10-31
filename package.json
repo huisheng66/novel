@@ -18,13 +18,18 @@
     "ejs": "^5.0.2",
     "express": "^5.2.1",
     "iconv-lite": "^0.7.2",
+    "ioredis": "^5.11.1",
     "jsonwebtoken": "^9.0.3",
     "mammoth": "^1.12.0",
     "multer": "^2.2.0",
-    "mysql2": "^3.22.3"
+    "mysql2": "^3.22.3",
+    "nodemailer": "^10.3.1"
   },
   "overrides": {
     "body-parser": "^2.3.0",
     "qs": "^6.15.2"
+  },
+  "devDependencies": {
+    "ioredis-mock": "^8.13.1"
   }
 }

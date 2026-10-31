@@ -99,7 +99,7 @@ async function ensureChapterSchema(conn) {
   }
 }
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 11;
 
 async function ensureSchemaVersionTable(conn) {
   await conn.execute(`
@@ -223,6 +223,7 @@ async function runSchemaMigrations(conn) {
       page_views BIGINT NOT NULL DEFAULT 0,
       sessions BIGINT NOT NULL DEFAULT 0,
       users BIGINT NOT NULL DEFAULT 0,
+      readers BIGINT NOT NULL DEFAULT 0,
       unique_ips BIGINT NOT NULL DEFAULT 0,
       novel_views BIGINT NOT NULL DEFAULT 0,
       chapter_views BIGINT NOT NULL DEFAULT 0,
@@ -236,6 +237,36 @@ async function runSchemaMigrations(conn) {
   await runSchemaMigrationsV4(conn);
   // v5: 一次一码邀请码（自助注册）
   await runSchemaMigrationsV5(conn);
+}
+
+/**
+ * 迁移清单：按 version 升序，仅执行 > 已应用版本的项。
+ * 历史链（≤5）整体幂等但开销大（含 ALTER TABLE MODIFY、全表 UPDATE），
+ * 因此不能每次升版本都整链重跑 —— 新增迁移往数组末尾追加即可。
+ */
+const MIGRATIONS = [
+  { version: 5, name: '基础迁移链 v1~v5', run: runSchemaMigrations },
+  { version: 6, name: '访问日志区分令牌与登录读者', run: runSchemaMigrationsV6 },
+  { version: 7, name: 'updated_at 归一化（增量查询可走索引）', run: runSchemaMigrationsV7 },
+  { version: 8, name: '章节付费分层与订单表', run: runSchemaMigrationsV8 },
+  { version: 9, name: '钱包、流水与充值兑换码', run: runSchemaMigrationsV9 },
+  { version: 10, name: '邮箱验证与找回密码令牌', run: runSchemaMigrationsV10 },
+  { version: 11, name: '充值码加长（code 64）', run: runSchemaMigrationsV11 }
+];
+
+async function runPendingMigrations(conn) {
+  const appliedVersion = await getAppliedSchemaVersion(conn);
+  if (appliedVersion >= SCHEMA_VERSION) return;
+
+  for (const migration of MIGRATIONS) {
+    if (appliedVersion >= migration.version) continue;
+    await migration.run(conn);
+    await recordSchemaVersion(conn, migration.version);
+    logger.info('数据库迁移完成', {
+      schema_version: migration.version,
+      name: migration.name
+    });
+  }
 }
 
 async function runSchemaMigrationsV3(conn) {
@@ -459,6 +490,236 @@ async function runSchemaMigrationsV5(conn) {
   `);
 }
 
+/**
+ * v6: 访问日志区分两类身份。
+ * - access_token_id：分享 / Legado 令牌（匿名只读读者）
+ * - user_id：登录读者（Web JWT / App 同一 users 账号）
+ * 此前 JWT 读者访问完全不写 page_views，导致看板只反映持令牌的匿名流量。
+ */
+async function runSchemaMigrationsV6(conn) {
+  if (!await columnExists(conn, 'page_views', 'user_id')) {
+    await conn.execute('ALTER TABLE page_views ADD COLUMN user_id INT DEFAULT NULL AFTER access_token_id');
+  }
+  if (!await indexExists(conn, 'page_views', 'idx_user_id')) {
+    try {
+      await conn.execute('CREATE INDEX idx_user_id ON page_views (user_id)');
+    } catch (err) {
+      if (err && err.code !== 'ER_DUP_KEYNAME') throw err;
+    }
+  }
+
+  // 登录读者数（DISTINCT user_id），与「访客数」（DISTINCT visitor_uid）分开统计
+  if (!await columnExists(conn, 'analytics_daily', 'readers')) {
+    await conn.execute('ALTER TABLE analytics_daily ADD COLUMN readers INT NOT NULL DEFAULT 0 AFTER users');
+  }
+  if (!await columnExists(conn, 'analytics_totals', 'readers')) {
+    await conn.execute('ALTER TABLE analytics_totals ADD COLUMN readers BIGINT NOT NULL DEFAULT 0 AFTER users');
+  }
+}
+
+/**
+ * v7: 把 updated_at 归一化为「恒非空」，让增量查询能走索引。
+ *
+ * 原查询写作 COALESCE(updated_at, created_at) > ?，列被函数包裹后
+ * idx_chapters_novel_updated(novel_id, updated_at) 无法用于范围扫描，
+ * 只能按 novel_id 取出全部章节再 filesort（2000+ 章的书每次追更都全扫）。
+ *
+ * 回填后所有查询直接用 updated_at；新行由列默认值 CURRENT_TIMESTAMP 保证非空。
+ * 刻意不做 ALTER ... NOT NULL：那会重建带 LONGTEXT 的 chapters 表，代价远大于收益。
+ */
+async function runSchemaMigrationsV7(conn) {
+  const [[chapterNulls]] = await conn.execute(
+    'SELECT COUNT(*) AS n FROM chapters WHERE updated_at IS NULL'
+  );
+  if (Number(chapterNulls.n) > 0) {
+    const [res] = await conn.execute(
+      'UPDATE chapters SET updated_at = COALESCE(created_at, NOW()) WHERE updated_at IS NULL'
+    );
+    logger.info('回填 chapters.updated_at', { rows: res.affectedRows });
+  }
+
+  if (await columnExists(conn, 'novels', 'updated_at')) {
+    const [[novelNulls]] = await conn.execute(
+      'SELECT COUNT(*) AS n FROM novels WHERE updated_at IS NULL'
+    );
+    if (Number(novelNulls.n) > 0) {
+      const [res] = await conn.execute(
+        'UPDATE novels SET updated_at = COALESCE(created_at, NOW()) WHERE updated_at IS NULL'
+      );
+      logger.info('回填 novels.updated_at', { rows: res.affectedRows });
+    }
+  }
+}
+
+/**
+ * v8: 章节付费分层。
+ *
+ * 设计上「免费到第几章」不写死在章节行里，而是按书籍规则实时计算
+ * （novel_paywall.free_until_chapter + platform_settings 全局默认），
+ * 这样后台改一个数字立即生效，不需要回写几千行章节。
+ *
+ * chapters.is_free / price 是**按章覆盖**，NULL 表示「跟随书籍规则」。
+ */
+async function runSchemaMigrationsV8(conn) {
+  if (!await columnExists(conn, 'chapters', 'is_free')) {
+    await conn.execute(
+      'ALTER TABLE chapters ADD COLUMN is_free TINYINT(1) DEFAULT NULL AFTER content_hash'
+    );
+  }
+  if (!await columnExists(conn, 'chapters', 'price')) {
+    await conn.execute('ALTER TABLE chapters ADD COLUMN price INT DEFAULT NULL AFTER is_free');
+  }
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS novel_paywall (
+      novel_id INT NOT NULL PRIMARY KEY,
+      enabled TINYINT(1) NOT NULL DEFAULT 1,
+      free_until_chapter INT NOT NULL DEFAULT 0,
+      price_per_chapter INT NOT NULL DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_paywall_novel FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 单章购买记录：唯一键防止重复扣费/重复入库
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS chapter_orders (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      novel_id INT NOT NULL,
+      chapter_number INT NOT NULL,
+      amount INT NOT NULL DEFAULT 0,
+      channel VARCHAR(32) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_order (user_id, novel_id, chapter_number),
+      INDEX idx_orders_novel (novel_id, chapter_number),
+      CONSTRAINT fk_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 全局默认：默认关闭，改造后站点行为与之前完全一致，由后台显式开启
+  const defaults = [
+    ['paywall_enabled', '0'],
+    ['paywall_default_free_until', '0'],
+    ['paywall_default_price', '0'],
+    ['paywall_hide_from_source', '1']
+  ];
+  for (const [key, value] of defaults) {
+    await conn.execute(
+      'INSERT IGNORE INTO platform_settings (setting_key, setting_value) VALUES (?, ?)',
+      [key, value]
+    );
+  }
+}
+
+/**
+ * v9: 钱包与充值。
+ *
+ * 余额统一以「分」为单位，与 chapters.price / novel_paywall.price_per_chapter 一致，
+ * 避免元/分混用导致的展示错位。
+ *
+ * 充值走「兑换码」而不是支付通道：不依赖企业商户资质即可跑通「充值 → 购买 → 阅读」
+ * 全链路，用于内测与人工发卡；微信/支付宝与 iOS IAP 属于后续阶段。
+ */
+async function runSchemaMigrationsV9(conn) {
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS user_wallets (
+      user_id INT NOT NULL PRIMARY KEY,
+      balance INT NOT NULL DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  // 流水：每次余额变动都留痕，便于对账与排查「扣了钱没给章」
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS wallet_transactions (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      delta INT NOT NULL,
+      balance_after INT NOT NULL,
+      type VARCHAR(32) NOT NULL,
+      ref VARCHAR(64) DEFAULT NULL,
+      note VARCHAR(255) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_wallet_tx_user (user_id, created_at),
+      INDEX idx_wallet_tx_type (type, created_at),
+      CONSTRAINT fk_wallet_tx_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS recharge_codes (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      code VARCHAR(32) NOT NULL,
+      amount INT NOT NULL,
+      note VARCHAR(255) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME DEFAULT NULL,
+      used_at DATETIME DEFAULT NULL,
+      used_by_user_id INT DEFAULT NULL,
+      UNIQUE KEY uk_recharge_code (code),
+      INDEX idx_recharge_unused (used_at, expires_at),
+      CONSTRAINT fk_recharge_used_by FOREIGN KEY (used_by_user_id) REFERENCES users(id) ON DELETE SET NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+}
+
+/**
+ * v10: 邮箱验证与找回密码。
+ *
+ * 令牌只存 sha256 哈希（与 refresh token 同策略），一次性、带过期时间；
+ * 明文只在发信那一刻存在于内存里，库被读走也无法直接使用。
+ *
+ * 验证状态默认**不阻塞**任何功能（两个开关默认 0），由后台按需打开。
+ */
+async function runSchemaMigrationsV10(conn) {
+  if (!await columnExists(conn, 'users', 'email_verified_at')) {
+    await conn.execute('ALTER TABLE users ADD COLUMN email_verified_at DATETIME DEFAULT NULL AFTER email');
+  }
+
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS email_tokens (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      kind VARCHAR(16) NOT NULL,
+      token_hash CHAR(64) NOT NULL,
+      expires_at DATETIME NOT NULL,
+      used_at DATETIME DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_email_token (token_hash),
+      INDEX idx_email_token_user (user_id, kind, expires_at),
+      CONSTRAINT fk_email_token_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
+
+  const defaults = [
+    ['email_verify_on_register', '1'],
+    ['email_verify_required_login', '0'],
+    ['email_verify_required_purchase', '0']
+  ];
+  for (const [key, value] of defaults) {
+    await conn.execute(
+      'INSERT IGNORE INTO platform_settings (setting_key, setting_value) VALUES (?, ?)',
+      [key, value]
+    );
+  }
+}
+
+/**
+ * v11: 充值码加长。旧码 42 亿组合可被规模化枚举，新码 160 位随机（base32 32 字符，
+ * 分组后 42 字符），列宽扩到 64。幂等：列宽已 ≥64 则跳过。
+ */
+async function runSchemaMigrationsV11(conn) {
+  const [[col]] = await conn.execute(
+    `SELECT CHARACTER_MAXIMUM_LENGTH AS len FROM information_schema.COLUMNS
+     WHERE table_schema = DATABASE() AND table_name = 'recharge_codes' AND column_name = 'code'`
+  );
+  if (col && Number(col.len) < 64) {
+    await conn.execute('ALTER TABLE recharge_codes MODIFY code VARCHAR(64) NOT NULL');
+  }
+}
+
 async function initDB() {
   // Ensure database exists
   const dbName = process.env.DB_NAME || 'novel';
@@ -520,6 +781,7 @@ async function initDB() {
         id BIGINT AUTO_INCREMENT PRIMARY KEY,
         visitor_uid VARCHAR(64) NOT NULL DEFAULT '',
         access_token_id INT DEFAULT NULL,
+        user_id INT DEFAULT NULL,
         session_id VARCHAR(64) NOT NULL,
         visitor_ip VARCHAR(64) NOT NULL,
         user_agent VARCHAR(255) NOT NULL,
@@ -531,6 +793,7 @@ async function initDB() {
         INDEX idx_created_at (created_at),
         INDEX idx_visitor_uid (visitor_uid),
         INDEX idx_access_token_id (access_token_id),
+        INDEX idx_user_id (user_id),
         INDEX idx_session_id (session_id),
         INDEX idx_visitor_ip (visitor_ip),
         INDEX idx_path (path),
@@ -545,6 +808,7 @@ async function initDB() {
         stat_date DATE PRIMARY KEY,
         sessions INT NOT NULL DEFAULT 0,
         users INT NOT NULL DEFAULT 0,
+        readers INT NOT NULL DEFAULT 0,
         page_views INT NOT NULL DEFAULT 0,
         unique_ips INT NOT NULL DEFAULT 0,
         novel_views INT NOT NULL DEFAULT 0,
@@ -559,6 +823,7 @@ async function initDB() {
         page_views BIGINT NOT NULL DEFAULT 0,
         sessions BIGINT NOT NULL DEFAULT 0,
         users BIGINT NOT NULL DEFAULT 0,
+        readers BIGINT NOT NULL DEFAULT 0,
         unique_ips BIGINT NOT NULL DEFAULT 0,
         novel_views BIGINT NOT NULL DEFAULT 0,
         chapter_views BIGINT NOT NULL DEFAULT 0,
@@ -575,14 +840,9 @@ async function initDB() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
-    // schema 版本管理:已应用最新版本时跳过历史迁移检查,缩短启动时间
+    // schema 版本管理：只跑尚未应用的迁移，避免每次升版本都重跑历史链
     await ensureSchemaVersionTable(conn);
-    const appliedVersion = await getAppliedSchemaVersion(conn);
-    if (appliedVersion < SCHEMA_VERSION) {
-      await runSchemaMigrations(conn);
-      await recordSchemaVersion(conn, SCHEMA_VERSION);
-      logger.info('数据库迁移完成', { schema_version: SCHEMA_VERSION });
-    }
+    await runPendingMigrations(conn);
 
     // Seed data: only if novels table is empty
     const [rows] = await conn.execute('SELECT COUNT(*) AS cnt FROM novels');

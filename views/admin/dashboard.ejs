@@ -32,6 +32,7 @@
         <a class="button button-secondary" href="/admin/novels/info">小说信息</a>
         <a class="button button-secondary" href="/admin/users">读者账号</a>
         <a class="button button-secondary" href="/admin/invites">邀请码</a>
+        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
         <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
       </div>
     </section>
@@ -46,7 +47,8 @@
     <section class="admin-dashboard-grid">
       <article class="admin-stat-card"><span>页面浏览</span><strong><%= summary.page_views || 0 %></strong></article>
       <article class="admin-stat-card" title="全站去重，定时聚合"><span>会话数</span><strong><%= summary.sessions || 0 %></strong></article>
-      <article class="admin-stat-card" title="全站去重，定时聚合"><span>用户数</span><strong><%= summary.users || 0 %></strong></article>
+      <article class="admin-stat-card" title="按访客 Cookie 去重，含匿名与登录读者"><span>访客数</span><strong><%= summary.users || 0 %></strong></article>
+      <article class="admin-stat-card" title="按读者账号去重（Web / App 登录用户）"><span>登录读者</span><strong><%= summary.readers || 0 %></strong></article>
       <article class="admin-stat-card" title="全站去重，定时聚合"><span>IP 数</span><strong><%= summary.unique_ips || 0 %></strong></article>
       <article class="admin-stat-card" title="全站去重，定时聚合"><span>浏览小说</span><strong><%= summary.novels_viewed || 0 %></strong></article>
       <article class="admin-stat-card" title="全站去重，定时聚合"><span>浏览章节</span><strong><%= summary.chapters_viewed || 0 %></strong></article>
@@ -56,16 +58,17 @@
       <section class="admin-block">
         <div class="admin-section-title">
           <h2>近 14 天游览趋势</h2>
-          <span>页面浏览 / 会话 / 用户 / IP</span>
+          <span>页面浏览 / 会话 / 访客 / 登录读者 / IP</span>
         </div>
         <div class="admin-trend-chart">
-          <% const maxValue = Math.max(1, ...dailySeries.map(function(row) { return Math.max(row.page_views, row.sessions, row.users, row.unique_ips); })); %>
+          <% const maxValue = Math.max(1, ...dailySeries.map(function(row) { return Math.max(row.page_views, row.sessions, row.users, row.readers, row.unique_ips); })); %>
           <% dailySeries.forEach(function(row) { %>
             <div class="admin-trend-col">
               <div class="admin-trend-bars">
                 <div class="admin-trend-bar page-views" style="height:<%= Math.max(6, row.page_views / maxValue * 100) %>%"></div>
                 <div class="admin-trend-bar sessions" style="height:<%= Math.max(6, row.sessions / maxValue * 100) %>%"></div>
                 <div class="admin-trend-bar users" style="height:<%= Math.max(6, row.users / maxValue * 100) %>%"></div>
+                <div class="admin-trend-bar readers" style="height:<%= Math.max(6, row.readers / maxValue * 100) %>%"></div>
                 <div class="admin-trend-bar ips" style="height:<%= Math.max(6, row.unique_ips / maxValue * 100) %>%"></div>
               </div>
               <span><%= row.day.slice(5) %></span>
@@ -75,7 +78,8 @@
         <div class="admin-legend">
           <span><i class="page-views"></i>页面浏览</span>
           <span><i class="sessions"></i>会话</span>
-          <span><i class="users"></i>用户</span>
+          <span><i class="users"></i>访客</span>
+          <span><i class="readers"></i>登录读者</span>
           <span><i class="ips"></i>IP</span>
         </div>
       </section>
@@ -119,7 +123,7 @@
         <table class="admin-table admin-user-stats-table">
           <thead>
             <tr>
-              <th>用户名</th>
+              <th>读者 / 令牌</th>
               <th>IP</th>
               <th>浏览次数</th>
               <th>会话数</th>
@@ -132,8 +136,9 @@
           </thead>
           <tbody>
             <% userIpStats.forEach(function(item) { %>
+              <% var who = item.reader_name || item.user_name || ''; %>
               <tr>
-                <td class="admin-mono-cell" title="<%= item.user_name ? item.user_name : item.visitor_uid %>"><%= item.user_name ? item.user_name : item.visitor_uid.slice(0, 8) + '…' %></td>
+                <td class="admin-mono-cell" title="<%= who || item.visitor_uid %>"><%= who || (item.visitor_uid.slice(0, 8) + '…') %></td>
                 <td class="admin-mono-cell"><%= item.visitor_ip %></td>
                 <td><strong><%= item.page_views %></strong></td>
                 <td><%= item.sessions %></td>
@@ -169,7 +174,8 @@
               <th>章节</th>
               <th>IP</th>
               <th>会话</th>
-              <th>用户</th>
+              <th>访客</th>
+              <th>读者</th>
             </tr>
           </thead>
           <tbody>
@@ -181,7 +187,8 @@
                 <td><%= item.chapter_title ? ('#' + item.chapter_number + ' ' + item.chapter_title) : '-' %></td>
                 <td><%= item.visitor_ip %></td>
                 <td><%= item.session_id %></td>
-                <td><%= item.visitor_uid %></td>
+                <td><%= item.visitor_uid.slice(0, 8) + '…' %></td>
+                <td><%= item.reader_name || '-' %></td>
               </tr>
             <% }) %>
           </tbody>

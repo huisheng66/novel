@@ -12,6 +12,8 @@ const bookmarksRoutes = require('./bookmarks');
 const opsRoutes = require('./ops');
 const devicesRoutes = require('./devices');
 const noticesRoutes = require('./notices');
+const walletRoutes = require('./wallet');
+const purchasesRoutes = require('./purchases');
 
 const router = express.Router();
 
@@ -45,6 +47,8 @@ router.use('/me/progress', progressRoutes);
 router.use('/me/bookmarks', bookmarksRoutes);
 router.use('/me/devices', devicesRoutes);
 router.use('/me/notices', noticesRoutes);
+router.use('/me/wallet', walletRoutes);
+router.use('/me/purchases', purchasesRoutes);
 router.use('/books', booksRoutes);
 
 router.use((err, req, res, next) => {

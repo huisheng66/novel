@@ -7,6 +7,9 @@ const dashboardRoutes = require('./dashboard');
 const tokenRoutes = require('./tokens');
 const userRoutes = require('./users');
 const inviteRoutes = require('./invites');
+const paywallRoutes = require('./paywall');
+const rechargeRoutes = require('./recharge');
+const emailRoutes = require('./email');
 const novelRoutes = require('./novels');
 const chapterRoutes = require('./chapters');
 
@@ -22,6 +25,9 @@ router.use(dashboardRoutes);
 router.use(tokenRoutes);
 router.use(userRoutes);
 router.use(inviteRoutes);
+router.use(paywallRoutes);
+router.use(rechargeRoutes);
+router.use(emailRoutes);
 router.use(novelRoutes);
 router.use(chapterRoutes);
 
