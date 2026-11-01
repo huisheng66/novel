@@ -21,27 +21,6 @@
 
   <main id="main-content">
     <article class="novel-detail">
-      <header class="novel-meta novel-meta-with-cover">
-        <% if (novel.cover_image) { %>
-          <img class="novel-cover" src="<%= novel.cover_image %>" alt="<%= novel.title %> 封面" fetchpriority="high">
-        <% } else { %>
-          <span class="novel-cover novel-cover-placeholder" aria-hidden="true"></span>
-        <% } %>
-        <div class="novel-summary">
-          <p class="page-eyebrow">书籍详情</p>
-          <h1><%= novel.title %></h1>
-          <p class="novel-desc"><%= novel.description || '暂无简介' %></p>
-          <p class="novel-chapter-total">共 <%= chapters.length %> 章</p>
-          <% if (chapters.length) { %>
-            <div class="novel-actions">
-              <a class="button button-primary" id="start-reading" href="/novel/<%= novel.id %>/<%= chapters[0].chapter_number %>">开始阅读</a>
-              <a class="button button-secondary" href="#chapter-list">浏览目录</a>
-            </div>
-            <p class="continue-hint" id="continue-hint" hidden></p>
-          <% } %>
-        </div>
-      </header>
-
       <section class="chapter-list" aria-labelledby="chapter-list-title" id="chapter-list">
         <div class="section-heading">
           <div>
@@ -110,23 +89,6 @@
       var ol = document.getElementById('chapter-list-ol');
       var backBtn = document.getElementById('back-to-top');
       var novelId = '<%= novel.id %>';
-
-      var start = document.getElementById('start-reading');
-      if (start) {
-        try {
-          var meta = JSON.parse(localStorage.getItem('reading-progress-meta:' + novelId) || 'null');
-          if (meta && meta.chapterNumber) {
-            var savedLink = ol.querySelector('li[data-n="' + Number(meta.chapterNumber) + '"] a');
-            if (savedLink) {
-              start.href = savedLink.href;
-              start.textContent = '继续阅读 · 第 ' + Number(meta.chapterNumber) + ' 章';
-              var hint = document.getElementById('continue-hint');
-              hint.textContent = '已找到你在这台设备上的最近阅读位置。';
-              hint.hidden = false;
-            }
-          }
-        } catch (e) {}
-      }
 
       if (ol) {
         var items = ol.querySelectorAll('li[data-n]');
