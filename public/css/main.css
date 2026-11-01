@@ -788,10 +788,17 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   outline: none;
 }
 
+/* 去除所有元素的焦点光标 */
+*:focus {
+  outline: none;
+  caret-color: transparent;
+}
+
 /* 去除链接焦点时的光标 */
 a:focus {
   outline: none;
   cursor: default;
+  caret-color: transparent;
 }
 
 /* 章节列表链接焦点时无视觉变化 */
@@ -799,6 +806,7 @@ a:focus {
   outline: none;
   background: transparent;
   color: inherit;
+  caret-color: transparent;
 }
 
 /* 书库卡片链接焦点时无视觉变化 */
@@ -806,6 +814,17 @@ a:focus {
   outline: none;
   background: transparent;
   box-shadow: none;
+  caret-color: transparent;
+}
+
+/* 章节导航按钮焦点时无视觉变化 */
+.chapter-navigation a:focus,
+.nav-prev:focus,
+.nav-next:focus {
+  outline: none;
+  background: transparent;
+  border-color: inherit;
+  caret-color: transparent;
 }
 
 /* 跳转链接 - 隐藏 */
