@@ -788,19 +788,10 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
   outline-offset: 3px;
 }
 
+/* 跳转链接 - 隐藏 */
 .skip-link {
-  position: fixed;
-  top: 0.75rem;
-  left: 0.75rem;
-  z-index: 1000;
-  padding: 0.65rem 1rem;
-  border-radius: 8px;
-  background: var(--text);
-  color: var(--bg);
-  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
-  transform: translateY(-180%);
+  display: none;
 }
-.skip-link:focus { transform: translateY(0); }
 
 #site-header {
   position: relative;
@@ -1328,8 +1319,6 @@ h1, h2, h3 { line-height: 1.35; }
   .ch-num,
   #site-footer,
   #site-footer a { color: var(--muted); }
-  .skip-link { color: var(--surface); }
-}
 html[data-reader-theme="dark"] {
   --bg: #171816;
   --surface: #20211e;
