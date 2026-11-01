@@ -429,6 +429,13 @@ main {
   max-width: 60vw;
   outline: none;
 }
+.chapter-search-input:focus {
+  outline: none;
+  box-shadow: none;
+}
+.chapter-search-input:focus-visible {
+  outline: none;
+}
 .chapter-search-input::placeholder { color: rgba(34, 34, 34, 0.5); }
 /* 隐藏浏览器原生 search 清除按钮,避免与自定义按钮重叠 */
 .chapter-search-input::-webkit-search-decoration,

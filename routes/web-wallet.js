@@ -5,7 +5,7 @@
 
 const express = require('express');
 const { getWallet, listTransactions, redeemCode } = require('../lib/api/wallet');
-const { purchaseChapter, listPurchases } = require('../lib/api/purchases');
+const { purchaseChapter, purchaseFullNovel, listPurchases } = require('../lib/api/purchases');
 const { ApiError } = require('../lib/api/errors');
 const { rejectCrossSite } = require('../lib/csrf');
 const rateLimitStore = require('../lib/rateLimitStore');
@@ -106,6 +106,34 @@ router.post('/novel/:id/:chapterNum/buy', rejectCrossSite, async (req, res, next
     if (err instanceof ApiError) {
       if (err.code === 'INSUFFICIENT_BALANCE') {
         const need = err.details && err.details.required ? `，本章需 ¥${yuan(err.details.required)}` : '';
+        return res.redirect(`/wallet?error=${encodeURIComponent(`余额不足${need}，请先充值`)}`);
+      }
+      return res.redirect(`${back}?error=${encodeURIComponent(err.message)}`);
+    }
+    next(err);
+  }
+});
+
+router.post('/novel/:id/buy-full', rejectCrossSite, async (req, res, next) => {
+  const novelId = toPositiveInt(req.params.id);
+  const back = `/novel/${req.params.id}`;
+
+  try {
+    if (!req.webUser) return loginRedirect(req, res, back);
+    if (!novelId) {
+      return res.redirect(`${back}?error=${encodeURIComponent('无效的小说 ID')}`);
+    }
+
+    const result = await purchaseFullNovel(req.webUser.id, novelId);
+    const notice = result.alreadyOwned
+      ? '你已解锁整本书'
+      : `解锁成功，扣除 ¥${yuan(result.amount)}，余额 ¥${yuan(result.balance)}。所有付费章节已解锁`;
+
+    res.redirect(`${back}?notice=${encodeURIComponent(notice)}`);
+  } catch (err) {
+    if (err instanceof ApiError) {
+      if (err.code === 'INSUFFICIENT_BALANCE') {
+        const need = err.details && err.details.required ? `，需 ¥${yuan(err.details.required)}` : '';
         return res.redirect(`/wallet?error=${encodeURIComponent(`余额不足${need}，请先充值`)}`);
       }
       return res.redirect(`${back}?error=${encodeURIComponent(err.message)}`);

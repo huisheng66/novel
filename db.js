@@ -99,7 +99,7 @@ async function ensureChapterSchema(conn) {
   }
 }
 
-const SCHEMA_VERSION = 11;
+const SCHEMA_VERSION = 12;
 
 async function ensureSchemaVersionTable(conn) {
   await conn.execute(`
@@ -251,7 +251,8 @@ const MIGRATIONS = [
   { version: 8, name: '章节付费分层与订单表', run: runSchemaMigrationsV8 },
   { version: 9, name: '钱包、流水与充值兑换码', run: runSchemaMigrationsV9 },
   { version: 10, name: '邮箱验证与找回密码令牌', run: runSchemaMigrationsV10 },
-  { version: 11, name: '充值码加长（code 64）', run: runSchemaMigrationsV11 }
+  { version: 11, name: '充值码加长（code 64）', run: runSchemaMigrationsV11 },
+  { version: 12, name: '按本付费模式', run: runSchemaMigrationsV12 }
 ];
 
 async function runPendingMigrations(conn) {
@@ -718,6 +719,44 @@ async function runSchemaMigrationsV11(conn) {
   if (col && Number(col.len) < 64) {
     await conn.execute('ALTER TABLE recharge_codes MODIFY code VARCHAR(64) NOT NULL');
   }
+}
+
+/**
+ * v12: 按本付费模式。
+ *
+ * 新增功能：
+ * 1. novel_paywall.unlock_full_price - 一次性解锁整本书的价格（NULL 表示不支持按本解锁）
+ * 2. novel_orders - 整本购买记录（与 chapter_orders 平行）
+ *
+ * 用户体验：
+ * - 如果书籍设置了 unlock_full_price，读者可以选择：
+ *   (a) 按章购买（每章单价）
+ *   (b) 按本解锁（一次性付费，解锁所有付费章节）
+ * - 如果 unlock_full_price 为 NULL，只能按章购买
+ */
+async function runSchemaMigrationsV12(conn) {
+  // 给 novel_paywall 添加按本解锁价格字段
+  if (!await columnExists(conn, 'novel_paywall', 'unlock_full_price')) {
+    await conn.execute(
+      'ALTER TABLE novel_paywall ADD COLUMN unlock_full_price INT DEFAULT NULL AFTER price_per_chapter'
+    );
+  }
+
+  // 整本购买订单表
+  await conn.execute(`
+    CREATE TABLE IF NOT EXISTS novel_orders (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      user_id INT NOT NULL,
+      novel_id INT NOT NULL,
+      amount INT NOT NULL DEFAULT 0,
+      channel VARCHAR(32) DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uk_novel_order (user_id, novel_id),
+      INDEX idx_novel_orders_novel (novel_id),
+      CONSTRAINT fk_novel_orders_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      CONSTRAINT fk_novel_orders_novel FOREIGN KEY (novel_id) REFERENCES novels(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+  `);
 }
 
 async function initDB() {

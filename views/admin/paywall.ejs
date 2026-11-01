@@ -4,40 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>付费设置 - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260809u">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">付费设置</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'paywall' }) %>
 
   <main class="admin-main admin-token-main">
     <section class="admin-titlebar">
       <div>
         <h1>付费设置</h1>
-        <p>「前 N 章免费」与单价全部在这里调整，保存后立即生效（无需改代码、无需重启）。留空的书籍项继承全局默认。</p>
-      </div>
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
-        <a class="button button-secondary" href="/admin">章节管理</a>
-        <a class="button button-secondary" href="/admin/recharge">充值码</a>
-        <a class="button button-secondary" href="/admin/users">读者账号</a>
-        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+        <p>调整全站及单书免费章节和单价；保存后立即生效。</p>
       </div>
     </section>
 
-    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
-    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+    <% if (notice) { %><div class="admin-alert admin-alert-ok" role="status"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error" role="alert"><%= error %></div><% } %>
 
     <section class="admin-block">
       <div class="admin-section-title">
@@ -83,18 +65,20 @@
         <span>不单独设置即继承上面的全局默认</span>
       </div>
 
-      <div class="admin-table-wrap">
+      <div class="admin-table-wrap" tabindex="0" role="region" aria-label="付费规则表格，可横向滚动">
         <table class="admin-table">
+          <caption class="admin-sr-only">各小说付费规则设置</caption>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>书名</th>
-              <th>章节数</th>
-              <th>本书启用</th>
-              <th>免费到第 N 章</th>
-              <th>单章价格（元）</th>
-              <th>来源</th>
-              <th></th>
+              <th scope="col">ID</th>
+              <th scope="col">书名</th>
+              <th scope="col">章节数</th>
+              <th scope="col">本书启用</th>
+              <th scope="col">免费到第 N 章</th>
+              <th scope="col">单章价格（元）</th>
+              <th scope="col">按本解锁（元）</th>
+              <th scope="col">来源</th>
+              <th scope="col">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -103,22 +87,27 @@
                 <td class="admin-mono-cell"><%= novel.id %></td>
                 <td><a href="/novel/<%= novel.id %>" target="_blank" rel="noopener"><%= novel.title %></a></td>
                 <td><%= novel.chapterCount %></td>
-                <td colspan="6">
+                <td colspan="7">
                   <form action="/admin/paywall/novels/<%= novel.id %>" method="post" class="paywall-row-form">
-                    <select name="enabled">
+                    <label class="admin-sr-only" for="paywall-enabled-<%= novel.id %>"><%= novel.title %>：本书启用付费</label>
+                    <select id="paywall-enabled-<%= novel.id %>" name="enabled">
                       <option value="0" <%= novel.enabled ? '' : 'selected' %>>关闭</option>
                       <option value="1" <%= novel.enabled ? 'selected' : '' %>>开启</option>
                     </select>
-                    <input type="number" name="free_until_chapter" value="<%= novel.freeUntil %>" min="0" step="1">
-                    <input type="number" name="price_per_chapter" value="<%= (novel.price / 100).toFixed(2) %>" min="0" step="0.01">
+                    <label class="admin-sr-only" for="paywall-free-<%= novel.id %>"><%= novel.title %>：免费到第几章</label>
+                    <input id="paywall-free-<%= novel.id %>" type="number" name="free_until_chapter" value="<%= novel.freeUntil %>" min="0" step="1">
+                    <label class="admin-sr-only" for="paywall-price-<%= novel.id %>"><%= novel.title %>：单章价格（元）</label>
+                    <input id="paywall-price-<%= novel.id %>" type="number" name="price_per_chapter" value="<%= (novel.price / 100).toFixed(2) %>" min="0" step="0.01">
+                    <label class="admin-sr-only" for="paywall-unlock-full-<%= novel.id %>"><%= novel.title %>：按本解锁价格（元，留空=不支持）</label>
+                    <input id="paywall-unlock-full-<%= novel.id %>" type="number" name="unlock_full_price" value="<%= novel.unlockFullPrice !== null ? (novel.unlockFullPrice / 100).toFixed(2) : '' %>" min="0" step="0.01" placeholder="不支持" style="width:90px">
                     <span class="admin-mono-cell"><%= novel.hasRule ? '本书单独设置' : '继承全局' %></span>
-                    <button class="button button-secondary" type="submit">保存</button>
+                    <button class="button button-secondary" type="submit">保存本书设置</button>
                   </form>
                 </td>
               </tr>
             <% }) %>
             <% if (novels.length === 0) { %>
-              <tr><td colspan="8" class="admin-empty">还没有小说</td></tr>
+              <tr><td colspan="9" class="admin-empty">还没有小说</td></tr>
             <% } %>
           </tbody>
         </table>
@@ -132,10 +121,11 @@
       <div class="admin-section-title">
         <h2>恢复全局默认</h2>
       </div>
-      <div class="admin-table-wrap">
+      <div class="admin-table-wrap" tabindex="0" role="region" aria-label="付费规则表格，可横向滚动">
         <table class="admin-table">
+          <caption class="admin-sr-only">可将单书付费规则恢复为全局默认的小说</caption>
           <thead>
-            <tr><th>ID</th><th>书名</th><th>当前来源</th><th></th></tr>
+            <tr><th scope="col">ID</th><th scope="col">书名</th><th scope="col">当前来源</th><th scope="col">操作</th></tr>
           </thead>
           <tbody>
             <% novels.forEach(function(novel) { %>
@@ -150,11 +140,14 @@
                       <button class="button button-secondary" type="submit">恢复默认</button>
                     </form>
                   <% } else { %>
-                    <span class="admin-empty">—</span>
+                    <span class="admin-muted">无需恢复</span>
                   <% } %>
                 </td>
               </tr>
             <% }) %>
+            <% if (novels.length === 0) { %>
+              <tr><td colspan="4" class="admin-empty">还没有小说，无法设置付费规则</td></tr>
+            <% } %>
           </tbody>
         </table>
       </div>
@@ -164,6 +157,7 @@
       <div class="admin-section-title"><h2>行为说明</h2></div>
       <ul style="margin:0;padding-left:1.2rem;line-height:1.9;font-size:0.9rem">
         <li>章号 <strong>大于</strong>「免费到第 N 章」的章节视为付费；填 0 表示整本收费，填一个大于总章数的值表示整本免费。</li>
+        <li><strong>按本解锁</strong>：设置价格后，用户可一次性购买整本书（所有付费章节）；留空则只能按章购买。</li>
         <li>付费章节在网页端显示试读片段 + 解锁卡片；正文不写入任何共享缓存，也不会带上 ETag 给未购用户。</li>
         <li>书源（Legado）只输出免费章节；「付费书籍隐藏」开启时整本不出现，避免目录有章节、正文抓不到。</li>
         <li>目录页对未解锁章节显示「付费」标记——只标不藏，读者才知道后面有什么。</li>

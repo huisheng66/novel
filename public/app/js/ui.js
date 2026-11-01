@@ -31,8 +31,11 @@ export function clear(node) {
   return node;
 }
 
-export function spinner() {
-  return el('div', { class: 'spinner' });
+export function spinner(text = '加载中…') {
+  return el('div', { class: 'loading-state', role: 'status' },
+    el('span', { class: 'spinner', 'aria-hidden': 'true' }),
+    el('span', { text })
+  );
 }
 
 export function empty(text) {

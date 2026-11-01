@@ -4,39 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>充值码 - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260809u">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">充值码</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'recharge' }) %>
 
   <main class="admin-main admin-token-main">
     <section class="admin-titlebar">
       <div>
         <h1>充值码</h1>
-        <p>读者在「我的钱包」输入充值码即可到账，一码一次有效。用于内测发卡与人工收款，不依赖支付通道。</p>
-      </div>
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
-        <a class="button button-secondary" href="/admin/users">读者账号</a>
-        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
-        <a class="button button-secondary" href="/admin">章节管理</a>
+        <p>生成、导出和管理一次性钱包充值码。</p>
       </div>
     </section>
 
-    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
-    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+    <% if (notice) { %><div class="admin-alert admin-alert-ok" role="status"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error" role="alert"><%= error %></div><% } %>
 
     <% if (lastCodes && lastCodes.length) { %>
       <section class="admin-block">
@@ -100,18 +83,19 @@
         </div>
       </div>
 
-      <div class="admin-table-wrap">
+      <div class="admin-table-wrap" tabindex="0" role="region" aria-label="充值码数据表格，可横向滚动">
         <table class="admin-table">
+          <caption class="admin-sr-only">充值码面额、状态、使用情况及可执行操作</caption>
           <thead>
             <tr>
-              <th>码</th>
-              <th>面额</th>
-              <th>状态</th>
-              <th>备注</th>
-              <th>创建时间</th>
-              <th>过期时间</th>
-              <th>使用者</th>
-              <th></th>
+              <th scope="col">码</th>
+              <th scope="col">面额</th>
+              <th scope="col">状态</th>
+              <th scope="col">备注</th>
+              <th scope="col">创建时间</th>
+              <th scope="col">过期时间</th>
+              <th scope="col">使用者</th>
+              <th scope="col">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -132,14 +116,14 @@
                   <% if (rc.status === 'unused') { %>
                     <form action="/admin/recharge/<%= rc.id %>/delete" method="post" style="display:inline"
                           onsubmit="return confirm('删除未使用的充值码 <%= rc.code %>？');">
-                      <button class="button button-secondary" type="submit">删除</button>
+                      <button class="button button-danger" type="submit">删除充值码</button>
                     </form>
                   <% } %>
                 </td>
               </tr>
             <% }) %>
             <% if (items.length === 0) { %>
-              <tr><td colspan="8" class="admin-empty">暂无记录</td></tr>
+              <tr><td colspan="8" class="admin-empty">当前筛选下暂无充值码</td></tr>
             <% } %>
           </tbody>
         </table>

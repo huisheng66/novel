@@ -2,6 +2,20 @@
   const workspace = document.querySelector('[data-admin-chapters]');
   if (!workspace) return;
 
+  const uploadForm = workspace.querySelector('.admin-upload');
+  const uploadButton = uploadForm && uploadForm.querySelector('[data-upload-submit]');
+  if (uploadForm && uploadButton) {
+    const updateUploadAction = () => {
+      const isReplace = uploadForm.elements.upload_mode.value === 'replace';
+      uploadButton.classList.toggle('button-danger', isReplace);
+      uploadButton.textContent = isReplace ? '覆盖全部章节并导入' : '上传导入';
+    };
+    uploadForm.querySelectorAll('input[name="upload_mode"]').forEach((input) => {
+      input.addEventListener('change', updateUploadAction);
+    });
+    updateUploadAction();
+  }
+
   const novelId = workspace.dataset.novelId;
   const nextNumber = workspace.dataset.nextNumber || '1';
   const editor = document.querySelector('[data-chapter-editor]');
@@ -14,6 +28,7 @@
   const submitButton = form && form.querySelector('button[type="submit"]');
   const heading = editor && editor.querySelector('.admin-section-title h2');
   const titleActions = editor && editor.querySelector('.admin-section-title');
+  const status = editor && editor.querySelector('[data-chapter-status]');
 
   if (!novelId || !editor || !form || !numberInput || !titleInput || !contentInput || !actions) return;
 
@@ -121,6 +136,8 @@
 
   const setEditorBusy = (busy) => {
     editor.classList.toggle('is-loading', busy);
+    editor.setAttribute('aria-busy', String(busy));
+    if (busy && status) status.textContent = '正在加载章节，请稍候。';
   };
 
   const rememberContent = (chapter) => {
@@ -208,6 +225,7 @@
     removeChapterError();
     const bar = document.createElement('div');
     bar.className = 'admin-alert admin-alert-error';
+    bar.setAttribute('role', 'alert');
     bar.dataset.chapterLoadError = 'true';
     bar.style.marginBottom = '0.8rem';
 
@@ -288,9 +306,11 @@
       if (inflightId !== id) return;
       rememberContent(data.chapter);
       setEditMode(data.chapter);
+      if (status) status.textContent = '章节内容已加载，可以编辑。';
       if (!options.skipHistory) updateLocation(data.chapter.id);
     } catch (err) {
       if (err && err.name === 'AbortError') return;
+      if (status) status.textContent = '章节加载失败，请使用错误提示中的“重试”。';
       showChapterError(id, (err && err.message) || '网络错误');
     } finally {
       if (inflightId === id) {

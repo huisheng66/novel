@@ -1,0 +1,24 @@
+<header id="site-header" class="admin-header">
+  <div class="header-inner admin-header-inner">
+    <a href="/admin" class="site-name">后台管理</a>
+    <div class="admin-header-actions">
+      <a class="button button-secondary" href="/">返回前台</a>
+      <form action="/admin/logout" method="post">
+        <button class="button button-quiet" type="submit">退出登录</button>
+      </form>
+    </div>
+  </div>
+  <nav class="admin-nav" aria-label="后台管理导航">
+    <div class="admin-nav-inner">
+      <a href="/admin" class="<%= activePage === 'chapters' ? 'is-active' : '' %>" <% if (activePage === 'chapters') { %>aria-current="page"<% } %>>章节</a>
+      <a href="/admin/novels/info" class="<%= activePage === 'novels' ? 'is-active' : '' %>" <% if (activePage === 'novels') { %>aria-current="page"<% } %>>小说</a>
+      <a href="/admin/dashboard" class="<%= activePage === 'dashboard' ? 'is-active' : '' %>" <% if (activePage === 'dashboard') { %>aria-current="page"<% } %>>数据</a>
+      <a href="/admin/users" class="<%= activePage === 'users' ? 'is-active' : '' %>" <% if (activePage === 'users') { %>aria-current="page"<% } %>>用户</a>
+      <a href="/admin/tokens" class="<%= activePage === 'tokens' ? 'is-active' : '' %>" <% if (activePage === 'tokens') { %>aria-current="page"<% } %>>Token</a>
+      <a href="/admin/invites" class="<%= activePage === 'invites' ? 'is-active' : '' %>" <% if (activePage === 'invites') { %>aria-current="page"<% } %>>邀请码</a>
+      <a href="/admin/paywall" class="<%= activePage === 'paywall' ? 'is-active' : '' %>" <% if (activePage === 'paywall') { %>aria-current="page"<% } %>>付费</a>
+      <a href="/admin/recharge" class="<%= activePage === 'recharge' ? 'is-active' : '' %>" <% if (activePage === 'recharge') { %>aria-current="page"<% } %>>充值</a>
+      <a href="/admin/email" class="<%= activePage === 'email' ? 'is-active' : '' %>" <% if (activePage === 'email') { %>aria-current="page"<% } %>>邮件</a>
+    </div>
+  </nav>
+</header>

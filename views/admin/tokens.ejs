@@ -4,42 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Token 用户 - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260807n">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">Token 用户</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'tokens' }) %>
 
   <main class="admin-main admin-token-main">
     <section class="admin-titlebar">
       <div>
-        <h1>Token 用户（分享 / Legado）</h1>
-        <p>站点 Access Token：只读内容，适合分享与 Legado。正式读者账号请用「读者账号」（Web + App 统一登录）。</p>
-      </div>
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
-        <a class="button button-secondary" href="/admin">章节管理</a>
-        <a class="button button-secondary" href="/admin/users">读者账号</a>
-        <a class="button button-secondary" href="/admin/novels/info">小说信息</a>
+        <h1>Token 用户</h1>
+        <p>创建用于分享与 Legado 的只读 Access Token，并查看访问和风控状态。</p>
       </div>
     </section>
 
     <% if (notice) { %>
-      <div class="admin-alert admin-alert-ok"><%= notice %></div>
+      <div class="admin-alert admin-alert-ok" role="status"><%= notice %></div>
     <% } %>
     <% if (error) { %>
-      <div class="admin-alert admin-alert-error"><%= error %></div>
+      <div class="admin-alert admin-alert-error" role="alert"><%= error %></div>
     <% } %>
 
     <section class="admin-block">

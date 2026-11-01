@@ -3,16 +3,27 @@
 
 import { api } from './api.js';
 import * as store from './store.js';
-import { el, clear, spinner, empty, toast, money, cover, formatDate } from './ui.js';
+import { el, clear, spinner, empty, toast, money, cover, formatDate } from './ui.js?v=20261101a';
 
 /* ---------------- 通用 ---------------- */
 
-function field(labelText, input) {
-  return el('label', { class: 'field' }, el('span', { text: labelText }), input);
+function field(labelText, input, hint = '') {
+  const hintId = hint && input.id ? `${input.id}-hint` : null;
+  return el('label', { class: 'field' },
+    el('span', { class: 'field-label', text: labelText }),
+    input,
+    hint ? el('span', { class: 'field-hint', id: hintId, text: hint }) : null
+  );
 }
 
-function alertBox(message, kind = 'error') {
-  return el('div', { class: `alert alert-${kind}`, text: message });
+function alertBox(message, kind = 'error', id = null) {
+  return el('div', {
+    class: `alert alert-${kind}`,
+    id,
+    role: 'alert',
+    'aria-atomic': 'true',
+    text: message
+  });
 }
 
 function loginHint() {
@@ -23,32 +34,64 @@ function loginHint() {
 /* ---------------- 登录 ---------------- */
 
 export async function LoginScreen() {
-  const email = el('input', { type: 'email', placeholder: '邮箱或用户名', autocomplete: 'username' });
-  const pwd = el('input', { type: 'password', placeholder: '密码', autocomplete: 'current-password' });
-  const box = el('div');
+  const identity = el('input', {
+    id: 'login-identity',
+    name: 'login',
+    type: 'text',
+    placeholder: '邮箱或用户名',
+    autocomplete: 'username',
+    required: true,
+    'aria-describedby': 'login-identity-hint login-error'
+  });
+  const pwd = el('input', {
+    id: 'login-password',
+    name: 'password',
+    type: 'password',
+    placeholder: '请输入密码',
+    autocomplete: 'current-password',
+    required: true,
+    'aria-describedby': 'login-error'
+  });
+  const box = alertBox('', 'error', 'login-error');
   const submit = el('button', { class: 'primary', type: 'submit' }, '登录');
 
+  for (const input of [identity, pwd]) {
+    input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
+  }
+
   const form = el('form', {
+    novalidate: false,
     onsubmit: async (ev) => {
       ev.preventDefault();
       clear(box);
+      identity.removeAttribute('aria-invalid');
+      pwd.removeAttribute('aria-invalid');
       submit.disabled = true;
+      submit.textContent = '登录中…';
       try {
-        await api.login({ login: email.value.trim(), password: pwd.value });
+        await api.login({ login: identity.value.trim(), password: pwd.value });
         location.hash = '#/library';
       } catch (err) {
-        box.appendChild(alertBox(err.message));
+        identity.setAttribute('aria-invalid', 'true');
+        pwd.setAttribute('aria-invalid', 'true');
+        box.textContent = err.message || '登录失败，请检查后重试。';
+        box.focus?.();
       } finally {
         submit.disabled = false;
+        submit.textContent = '登录';
       }
     }
-  }, box, field('邮箱或用户名', email), field('密码', pwd), submit);
+  }, box,
+    field('邮箱或用户名', identity, '可使用注册邮箱或用户名登录'),
+    field('密码', pwd),
+    submit
+  );
 
   return {
     title: '登录',
-    node: el('div', {},
+    node: el('div', { class: 'screen auth-screen' },
       form,
-      el('p', { class: 'muted', style: 'margin-top:1rem' },
+      el('p', { class: 'muted auth-links' },
         el('a', { href: '/forgot-password', text: '忘记密码？' })),
       loginHint()
     )
@@ -58,17 +101,47 @@ export async function LoginScreen() {
 /* ---------------- 注册 ---------------- */
 
 export async function RegisterScreen() {
-  const email = el('input', { type: 'email', placeholder: 'you@example.com', autocomplete: 'email' });
-  const pwd = el('input', { type: 'password', placeholder: '至少 8 位', autocomplete: 'new-password' });
-  const invite = el('input', { type: 'text', placeholder: '有就填，没有可留空' });
-  const box = el('div');
+  const email = el('input', {
+    id: 'register-email',
+    name: 'email',
+    type: 'email',
+    placeholder: 'you@example.com',
+    autocomplete: 'email',
+    required: true,
+    'aria-describedby': 'register-email-hint register-error'
+  });
+  const pwd = el('input', {
+    id: 'register-password',
+    name: 'password',
+    type: 'password',
+    placeholder: '至少 8 位',
+    autocomplete: 'new-password',
+    minlength: 8,
+    required: true,
+    'aria-describedby': 'register-password-hint register-error'
+  });
+  const invite = el('input', {
+    id: 'register-invite',
+    name: 'inviteCode',
+    type: 'text',
+    placeholder: '有就填，没有可留空',
+    autocomplete: 'off'
+  });
+  const box = alertBox('', 'error', 'register-error');
   const submit = el('button', { class: 'primary', type: 'submit' }, '注册');
+
+  for (const input of [email, pwd]) {
+    input.addEventListener('input', () => input.removeAttribute('aria-invalid'));
+  }
 
   const form = el('form', {
     onsubmit: async (ev) => {
       ev.preventDefault();
       clear(box);
+      email.removeAttribute('aria-invalid');
+      pwd.removeAttribute('aria-invalid');
       submit.disabled = true;
+      submit.textContent = '注册中…';
       try {
         const result = await api.register({
           email: email.value.trim(),
@@ -78,22 +151,26 @@ export async function RegisterScreen() {
         toast(result.emailVerificationSent ? '注册成功，验证邮件已发送' : '注册成功');
         location.hash = '#/library';
       } catch (err) {
-        box.appendChild(alertBox(err.message));
+        email.setAttribute('aria-invalid', 'true');
+        pwd.setAttribute('aria-invalid', 'true');
+        box.textContent = err.message || '注册失败，请检查后重试。';
       } finally {
         submit.disabled = false;
+        submit.textContent = '注册';
       }
     }
   }, box,
-    field('邮箱', email),
-    field('密码', pwd),
+    field('邮箱', email, '用于登录和接收验证邮件'),
+    field('密码', pwd, '密码至少 8 位'),
     field('邀请码（选填）', invite),
-    submit);
+    submit
+  );
 
   return {
     title: '注册',
-    node: el('div', {},
+    node: el('div', { class: 'screen auth-screen' },
       form,
-      el('p', { class: 'muted', style: 'margin-top:1rem' },
+      el('p', { class: 'muted auth-links' },
         '已有账号？', el('a', { href: '#/login', text: '去登录' }))
     )
   };
@@ -102,14 +179,37 @@ export async function RegisterScreen() {
 /* ---------------- 书库 ---------------- */
 
 export async function LibraryScreen() {
-  const list = el('ul', { class: 'book-list' });
-  const status = el('p', { class: 'muted' });
-  const search = el('input', { type: 'search', placeholder: '搜索书名或作者' });
+  const list = el('ul', { class: 'book-list', id: 'library-results' });
+  const status = el('p', {
+    class: 'muted result-status',
+    role: 'status',
+    'aria-live': 'polite',
+    'aria-atomic': 'true'
+  });
+  const resultState = el('div', { class: 'results-state' });
+  const search = el('input', {
+    id: 'library-search',
+    name: 'q',
+    type: 'search',
+    placeholder: '输入书名或作者',
+    autocomplete: 'off',
+    'aria-controls': 'library-results',
+    'aria-describedby': 'library-search-hint'
+  });
+  const more = el('button', {
+    class: 'ghost load-more',
+    type: 'button',
+    onclick: () => load(false)
+  }, '加载更多');
 
   let page = 1;
   let keyword = '';
   let total = 0;
   let loaded = 0;
+  let loading = false;
+  let requestSeq = 0;
+  let lastLoadReset = true;
+  let timer = null;
 
   function bookNode(item) {
     return el('li', {},
@@ -125,34 +225,65 @@ export async function LibraryScreen() {
   }
 
   async function load(reset) {
+    if (loading && !reset) return;
+
+    const requestId = ++requestSeq;
+    const requestedPage = reset ? 1 : page;
+    const requestedKeyword = keyword;
+    lastLoadReset = reset;
+    loading = true;
+    more.disabled = true;
+    more.textContent = '加载中…';
+    clear(resultState);
+    list.setAttribute('aria-busy', 'true');
+
     if (reset) {
       page = 1;
+      total = 0;
       loaded = 0;
       clear(list);
+      more.hidden = true;
     }
-    status.textContent = '加载中…';
+    status.textContent = requestedPage === 1 ? '正在加载书籍…' : '正在加载更多书籍…';
+
     try {
-      const data = await api.books({ q: keyword, page, pageSize: 20 });
-      total = data.total;
-      for (const item of data.items) list.appendChild(bookNode(item));
-      loaded += data.items.length;
-      page += 1;
-      status.textContent = total === 0 ? '' : `已显示 ${loaded} / ${total} 本`;
-      if (loaded < total) {
-        more.hidden = false;
+      const data = await api.books({ q: requestedKeyword, page: requestedPage, pageSize: 20 });
+      if (requestId !== requestSeq) return;
+
+      const items = Array.isArray(data.items) ? data.items : [];
+      total = Number(data.total) || 0;
+      for (const item of items) list.appendChild(bookNode(item));
+      loaded += items.length;
+      page = requestedPage + 1;
+
+      if (loaded === 0) {
+        resultState.appendChild(empty(requestedKeyword ? '没有找到匹配的书，请换个关键词。' : '书库暂时没有书籍。'));
+        status.textContent = requestedKeyword ? '搜索完成，没有找到结果。' : '书库为空。';
       } else {
-        more.hidden = true;
+        status.textContent = `已显示 ${loaded} / ${total} 本`;
       }
-      if (total === 0) list.appendChild(empty('没有找到匹配的书'));
+      more.hidden = loaded === 0 || loaded >= total;
     } catch (err) {
-      status.textContent = '';
-      list.appendChild(alertBox(err.message));
+      if (requestId !== requestSeq) return;
+      status.textContent = '书籍加载失败。';
+      more.hidden = true;
+      const retry = el('button', {
+        class: 'ghost',
+        type: 'button',
+        onclick: () => load(lastLoadReset)
+      }, '重新加载');
+      resultState.appendChild(alertBox(err.message || '加载失败，请检查网络后重试。'));
+      resultState.appendChild(el('p', { class: 'state-action' }, retry));
+    } finally {
+      if (requestId === requestSeq) {
+        loading = false;
+        list.setAttribute('aria-busy', 'false');
+        more.disabled = false;
+        more.textContent = '加载更多';
+      }
     }
   }
 
-  const more = el('button', { class: 'ghost', type: 'button', onclick: () => load(false) }, '加载更多');
-
-  let timer = null;
   search.addEventListener('input', () => {
     clearTimeout(timer);
     timer = setTimeout(() => {
@@ -165,22 +296,36 @@ export async function LibraryScreen() {
 
   return {
     title: '书库',
-    node: el('div', {}, el('div', { style: 'margin-bottom:0.8rem' }, search), list, status, more)
+    node: el('div', { class: 'screen' },
+      el('div', { class: 'search-box' },
+        el('label', { class: 'sr-only', for: 'library-search', text: '搜索书名或作者' }),
+        search,
+        el('p', { class: 'field-hint', id: 'library-search-hint', text: '输入关键词后会自动搜索。' })
+      ),
+      status,
+      resultState,
+      list,
+      more
+    ),
+    cleanup: () => {
+      clearTimeout(timer);
+      requestSeq += 1;
+    }
   };
 }
 
 /* ---------------- 书架 ---------------- */
 
 export async function ShelfScreen() {
-  const node = el('div', {}, spinner());
+  const node = el('div', { class: 'screen' }, spinner());
   try {
     const data = await api.shelf();
     clear(node);
 
     if (!data.items || data.items.length === 0) {
-      node.appendChild(empty('书架还是空的，去书库挑一本'));
-      node.appendChild(el('p', { style: 'text-align:center' },
-        el('a', { class: 'ghost', href: '#/library', style: 'display:inline-block;padding:0.5rem 1rem;text-decoration:none', text: '去书库' })));
+      node.appendChild(empty('书架还是空的，去书库挑一本吧。'));
+      node.appendChild(el('p', { class: 'state-action' },
+        el('a', { class: 'ghost', href: '#/library', text: '去书库看看' })));
       return { title: '书架', node };
     }
 
@@ -213,28 +358,30 @@ export async function ShelfScreen() {
 /* ---------------- 书籍详情 / 目录 ---------------- */
 
 export async function BookScreen({ id }) {
-  const node = el('div', {}, spinner());
+  const node = el('div', { class: 'screen' }, spinner());
+  let pageTitle = '书籍详情';
 
   try {
     const [book, toc] = await Promise.all([api.book(id), api.toc(id, { page: 1, pageSize: 200 })]);
     clear(node);
+    pageTitle = book.title || '书籍详情';
 
     const local = store.getLocalProgress(id);
 
-    node.appendChild(el('div', { class: 'card' },
+    node.appendChild(el('section', { class: 'card book-overview', 'aria-labelledby': 'book-title' },
       el('div', { class: 'row' },
         cover(book.coverUrl, book.title),
         el('div', { class: 'book-meta' },
-          el('p', { class: 'book-title', text: book.title }),
+          el('h2', { class: 'book-title', id: 'book-title', text: book.title }),
           el('p', { class: 'book-sub', text: `${book.author || '佚名'} · ${book.chapterCount} 章` }),
           el('p', { class: 'book-sub', text: book.lastChapterTitle ? `最新：${book.lastChapterTitle}` : '' })
         )
       ),
-      book.description ? el('p', { class: 'muted', style: 'margin:0.7rem 0 0', text: book.description }) : null
+      book.description ? el('p', { class: 'muted book-description', text: book.description }) : null
     ));
 
     const startAt = local && local.chapterNumber ? local.chapterNumber : 1;
-    const actions = el('div', { class: 'row', style: 'margin-bottom:0.9rem' },
+    const actions = el('div', { class: 'row book-actions' },
       el('button', {
         class: 'primary',
         type: 'button',
@@ -275,7 +422,7 @@ export async function BookScreen({ id }) {
     };
     actions.appendChild(shelfBtn);
 
-    node.appendChild(el('p', { class: 'book-sub', text: `目录（共 ${toc.total} 章）` }));
+    node.appendChild(el('h2', { class: 'section-title', text: `目录（共 ${toc.total} 章）` }));
     const list = el('ul', { class: 'toc-list' });
     for (const ch of toc.items) {
       list.appendChild(el('li', {},
@@ -320,7 +467,7 @@ export async function BookScreen({ id }) {
     node.appendChild(alertBox(err.message));
   }
 
-  return { title: '详情', node, back: true };
+  return { title: pageTitle, node, back: true };
 }
 
 /* ---------------- 阅读 ---------------- */
@@ -430,32 +577,78 @@ export async function ReaderScreen({ id, n }) {
     window.addEventListener('scroll', onScroll, { passive: true });
 
     // 工具栏：字号 / 主题 / 目录
-    const prefs = store.getPrefs();
-    const toolbar = el('div', { class: 'reader-toolbar' },
-      el('button', {
-        type: 'button',
-        onclick: () => { store.setPrefs({ fontSize: Math.max(14, store.getPrefs().fontSize - 1) }); store.applyTheme(store.getPrefs().theme); }
-      }, 'A-'),
-      el('button', {
-        type: 'button',
-        onclick: () => { store.setPrefs({ fontSize: Math.min(28, store.getPrefs().fontSize + 1) }); store.applyTheme(store.getPrefs().theme); }
-      }, 'A+'),
-      el('button', {
-        type: 'button',
-        onclick: () => {
-          const order = ['auto', 'light', 'dark', 'sepia'];
-          const next = order[(order.indexOf(store.getPrefs().theme) + 1) % order.length];
-          store.setPrefs({ theme: next });
-          store.applyTheme(next);
-          toast({ auto: '跟随系统', light: '浅色', dark: '深色', sepia: '护眼' }[next]);
-        }
-      }, '主题'),
-      el('span', { class: 'spacer' }),
-      el('a', { href: `#/book/${id}`, style: 'color:inherit;text-decoration:none;padding:0.35rem 0.5rem' }, '目录')
+    const decrease = el('button', {
+      type: 'button',
+      'aria-label': '减小正文字号',
+      title: '减小正文字号'
+    }, 'A−');
+    const increase = el('button', {
+      type: 'button',
+      'aria-label': '增大正文字号',
+      title: '增大正文字号'
+    }, 'A+');
+    const fontStatus = el('span', {
+      class: 'sr-only',
+      role: 'status',
+      'aria-live': 'polite',
+      'aria-atomic': 'true'
+    });
+    const themeButton = el('button', { class: 'theme-button', type: 'button' });
+    const themeNames = { auto: '跟随系统', light: '浅色', dark: '深色', sepia: '护眼' };
+
+    function updateFontControls() {
+      const size = store.getPrefs().fontSize;
+      decrease.disabled = size <= 14;
+      increase.disabled = size >= 28;
+      fontStatus.textContent = `正文字号 ${size} 像素`;
+    }
+
+    function changeFontSize(delta) {
+      const size = Math.min(28, Math.max(14, store.getPrefs().fontSize + delta));
+      store.setPrefs({ fontSize: size });
+      store.applyTheme(store.getPrefs().theme);
+      updateFontControls();
+      toast(`正文字号已调整为 ${size} 像素`);
+    }
+
+    function updateThemeButton() {
+      const theme = store.getPrefs().theme;
+      const name = themeNames[theme] || themeNames.auto;
+      themeButton.textContent = `主题：${name}`;
+      themeButton.setAttribute('aria-label', `切换阅读主题，当前为${name}`);
+      themeButton.title = '点击切换浅色、深色、护眼或跟随系统';
+    }
+
+    decrease.addEventListener('click', () => changeFontSize(-1));
+    increase.addEventListener('click', () => changeFontSize(1));
+    themeButton.addEventListener('click', () => {
+      const order = ['auto', 'light', 'dark', 'sepia'];
+      const next = order[(order.indexOf(store.getPrefs().theme) + 1) % order.length];
+      store.setPrefs({ theme: next });
+      store.applyTheme(next);
+      updateThemeButton();
+      toast(`阅读主题：${themeNames[next]}`);
+    });
+    updateFontControls();
+    updateThemeButton();
+
+    const toolbar = el('div', {
+      class: 'reader-toolbar',
+      role: 'toolbar',
+      'aria-label': '阅读设置'
+    },
+      decrease,
+      increase,
+      themeButton,
+      fontStatus,
+      el('a', { class: 'toolbar-link', href: `#/book/${id}`, 'aria-label': '返回本书目录' }, '目录')
     );
     node.appendChild(toolbar);
 
     onKey = (ev) => {
+      if (ev.altKey || ev.ctrlKey || ev.metaKey || ev.shiftKey) return;
+      const target = ev.target;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
       if (ev.key === 'ArrowLeft' && data.prev) location.hash = `#/read/${id}/${data.prev}`;
       if (ev.key === 'ArrowRight' && data.next) location.hash = `#/read/${id}/${data.next}`;
     };
@@ -479,18 +672,21 @@ export async function ReaderScreen({ id, n }) {
           class: 'primary',
           type: 'button',
           onclick: async (ev) => {
-            ev.target.disabled = true;
+            const button = ev.currentTarget;
+            button.disabled = true;
+            button.textContent = '购买中…';
             try {
               const result = await api.purchase({ novelId: Number(id), chapterNumber });
               toast(result.alreadyOwned ? '该章已购买' : `购买成功，扣除 ¥${money(result.amount)}`);
               window.dispatchEvent(new Event('app:reload'));
             } catch (e) {
               if (e.code === 'INSUFFICIENT_BALANCE') {
-                toast('余额不足，去钱包充值');
+                toast('余额不足，请先在“我的”页面充值');
                 location.hash = '#/wallet';
               } else {
                 toast(e.message);
-                ev.target.disabled = false;
+                button.disabled = false;
+                button.textContent = '购买本章';
               }
             }
           }
@@ -509,7 +705,7 @@ export async function ReaderScreen({ id, n }) {
 /* ---------------- 钱包 / 我的 ---------------- */
 
 export async function WalletScreen() {
-  const node = el('div', {}, spinner());
+  const node = el('div', { class: 'screen' }, spinner());
 
   try {
     const [wallet, purchases, user] = await Promise.all([
@@ -528,23 +724,51 @@ export async function WalletScreen() {
         me.email ? `${me.email}${me.emailVerified ? '（已验证）' : '（未验证）'}` : '未绑定邮箱')
     ));
 
-    const code = el('input', { type: 'text', placeholder: '输入兑换码，如 RC-XXXXXXXX' });
-    const redeemBtn = el('button', { class: 'primary', type: 'button', style: 'margin-top:0.6rem' }, '充值');
-    redeemBtn.onclick = async () => {
-      const value = code.value.trim();
-      if (!value) return toast('请输入兑换码');
-      redeemBtn.disabled = true;
-      try {
-        const result = await api.redeem(value);
-        toast(`充值成功 ¥${money(result.amount)}，余额 ¥${money(result.balance)}`);
-        window.dispatchEvent(new Event('app:reload'));
-      } catch (err) {
-        toast(err.message);
-      } finally {
-        redeemBtn.disabled = false;
+    const code = el('input', {
+      id: 'redeem-code',
+      name: 'code',
+      type: 'text',
+      placeholder: '例如 RC-XXXXXXXX',
+      autocomplete: 'off',
+      required: true,
+      'aria-describedby': 'redeem-code-hint redeem-error'
+    });
+    const redeemError = alertBox('', 'error', 'redeem-error');
+    const redeemBtn = el('button', { class: 'primary', type: 'submit' }, '充值');
+    code.addEventListener('input', () => code.removeAttribute('aria-invalid'));
+
+    const redeemForm = el('form', {
+      onsubmit: async (ev) => {
+        ev.preventDefault();
+        const value = code.value.trim();
+        clear(redeemError);
+        code.removeAttribute('aria-invalid');
+        if (!value) {
+          code.setAttribute('aria-invalid', 'true');
+          redeemError.textContent = '请输入兑换码。';
+          code.focus();
+          return;
+        }
+        redeemBtn.disabled = true;
+        redeemBtn.textContent = '充值中…';
+        try {
+          const result = await api.redeem(value);
+          toast(`充值成功 ¥${money(result.amount)}，余额 ¥${money(result.balance)}`);
+          window.dispatchEvent(new Event('app:reload'));
+        } catch (err) {
+          code.setAttribute('aria-invalid', 'true');
+          redeemError.textContent = err.message || '充值失败，请检查兑换码后重试。';
+        } finally {
+          redeemBtn.disabled = false;
+          redeemBtn.textContent = '充值';
+        }
       }
-    };
-    node.appendChild(el('div', { class: 'card' }, el('p', { class: 'muted', style: 'margin:0 0 0.5rem', text: '兑换码充值' }), code, redeemBtn));
+    }, field('兑换码', code, '输入有效兑换码为账户充值'), redeemError, redeemBtn);
+
+    node.appendChild(el('section', { class: 'card', 'aria-labelledby': 'redeem-title' },
+      el('h2', { class: 'section-title', id: 'redeem-title', text: '兑换码充值' }),
+      redeemForm
+    ));
 
     const txs = wallet.transactions || [];
     node.appendChild(el('div', { class: 'card' },

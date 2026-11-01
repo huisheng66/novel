@@ -4,44 +4,25 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>仪表盘 - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260807n">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">仪表盘</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'dashboard' }) %>
 
   <main class="admin-main admin-dashboard-main">
     <section class="admin-titlebar">
       <div>
-        <h1>仪表盘</h1>
-        <p>概览会话、用户、页面浏览、IP 分布和访问趋势。</p>
-      </div>
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin">章节管理</a>
-        <a class="button button-secondary" href="/admin/novels/info">小说信息</a>
-        <a class="button button-secondary" href="/admin/users">读者账号</a>
-        <a class="button button-secondary" href="/admin/invites">邀请码</a>
-        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
-        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+        <h1>数据概览</h1>
+        <p>查看会话、用户、页面浏览、IP 分布和近 14 天访问趋势。</p>
       </div>
     </section>
 
     <% if (notice) { %>
-      <div class="admin-alert admin-alert-ok"><%= notice %></div>
+      <div class="admin-alert admin-alert-ok" role="status"><%= notice %></div>
     <% } %>
     <% if (error) { %>
-      <div class="admin-alert admin-alert-error"><%= error %></div>
+      <div class="admin-alert admin-alert-error" role="alert"><%= error %></div>
     <% } %>
 
     <section class="admin-dashboard-grid">
@@ -57,7 +38,7 @@
     <section class="admin-dashboard-layout">
       <section class="admin-block">
         <div class="admin-section-title">
-          <h2>近 14 天游览趋势</h2>
+          <h2>近 14 天浏览趋势</h2>
           <span>页面浏览 / 会话 / 访客 / 登录读者 / IP</span>
         </div>
         <div class="admin-trend-chart">
@@ -119,19 +100,20 @@
         <h2>用户访问统计</h2>
         <span>按用户和 IP 汇总，最多显示 50 条</span>
       </div>
-      <div class="admin-table-wrap">
+      <div class="admin-table-wrap" tabindex="0" role="region" aria-label="访问统计数据表格，可横向滚动">
         <table class="admin-table admin-user-stats-table">
+          <caption class="admin-sr-only">按读者、令牌和 IP 汇总的访问统计</caption>
           <thead>
             <tr>
-              <th>读者 / 令牌</th>
-              <th>IP</th>
-              <th>浏览次数</th>
-              <th>会话数</th>
-              <th>路径数</th>
-              <th>小说</th>
-              <th>章节</th>
-              <th>首次访问</th>
-              <th>最近访问</th>
+              <th scope="col">读者 / 令牌</th>
+              <th scope="col">IP</th>
+              <th scope="col">浏览次数</th>
+              <th scope="col">会话数</th>
+              <th scope="col">路径数</th>
+              <th scope="col">小说</th>
+              <th scope="col">章节</th>
+              <th scope="col">首次访问</th>
+              <th scope="col">最近访问</th>
             </tr>
           </thead>
           <tbody>
@@ -164,18 +146,19 @@
         <h2>最近访问</h2>
         <span>最新 20 条页面浏览</span>
       </div>
-      <div class="admin-table-wrap">
+      <div class="admin-table-wrap" tabindex="0" role="region" aria-label="访问统计数据表格，可横向滚动">
         <table class="admin-table">
+          <caption class="admin-sr-only">最新 20 条页面访问记录</caption>
           <thead>
             <tr>
-              <th>时间</th>
-              <th>路径</th>
-              <th>小说</th>
-              <th>章节</th>
-              <th>IP</th>
-              <th>会话</th>
-              <th>访客</th>
-              <th>读者</th>
+              <th scope="col">时间</th>
+              <th scope="col">路径</th>
+              <th scope="col">小说</th>
+              <th scope="col">章节</th>
+              <th scope="col">IP</th>
+              <th scope="col">会话</th>
+              <th scope="col">访客</th>
+              <th scope="col">读者</th>
             </tr>
           </thead>
           <tbody>
@@ -191,6 +174,9 @@
                 <td><%= item.reader_name || '-' %></td>
               </tr>
             <% }) %>
+            <% if (latestViews.length === 0) { %>
+              <tr><td colspan="8" class="admin-empty">暂无访问记录</td></tr>
+            <% } %>
           </tbody>
         </table>
       </div>

@@ -4,38 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>邮件与验证 - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260809u">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">邮件与验证</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'email' }) %>
 
   <main class="admin-main admin-token-main">
     <section class="admin-titlebar">
       <div>
         <h1>邮件与邮箱验证</h1>
-        <p>SMTP 配置走环境变量（改完需重启）；是否强制验证、注册是否发信在这里调，保存即生效。</p>
-      </div>
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin/users">读者账号</a>
-        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
-        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
+        <p>查看 SMTP 状态、发送测试邮件，并调整注册与验证策略。</p>
       </div>
     </section>
 
-    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
-    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+    <% if (notice) { %><div class="admin-alert admin-alert-ok" role="status"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error" role="alert"><%= error %></div><% } %>
 
     <section class="admin-block">
       <div class="admin-section-title">

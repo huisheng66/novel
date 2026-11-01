@@ -4,42 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>读者账号 - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260809u">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">读者账号</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'users' }) %>
 
   <main class="admin-main admin-token-main">
     <section class="admin-titlebar">
       <div>
-        <h1>读者账号（Web + App 统一）</h1>
-        <p>与 ReadAny / 网页登录共用 <code>users</code> 表。Token 用户页仅用于分享/Legado 只读访问。</p>
-      </div>
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
-        <a class="button button-secondary" href="/admin/invites">邀请码</a>
-        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
-        <a class="button button-secondary" href="/admin/recharge">充值码</a>
-        <a class="button button-secondary" href="/admin/email">邮件与验证</a>
-        <a class="button button-secondary" href="/admin">章节管理</a>
-        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+        <h1>读者账号</h1>
+        <p>创建并维护 Web 与 App 共用的读者账号、邮箱验证和余额。</p>
       </div>
     </section>
 
-    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
-    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+    <% if (notice) { %><div class="admin-alert admin-alert-ok" role="status"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error" role="alert"><%= error %></div><% } %>
 
     <section class="admin-block">
       <div class="admin-section-title">
@@ -72,29 +52,31 @@
     <section class="admin-block">
       <div class="admin-section-title">
         <h2>用户列表（共 <%= total %>）</h2>
-        <form method="get" action="/admin/users" style="display:flex;gap:0.5rem;align-items:center">
-          <input type="search" name="q" value="<%= q || '' %>" placeholder="搜索用户名/显示名" style="padding:0.35rem 0.5rem">
+        <form class="admin-search" method="get" action="/admin/users" role="search">
+          <label class="admin-sr-only" for="user-search">搜索用户名或显示名</label>
+          <input id="user-search" type="search" name="q" value="<%= q || '' %>" placeholder="搜索用户名/显示名">
           <button class="button button-secondary" type="submit">搜索</button>
         </form>
       </div>
 
-      <div class="admin-table-wrap">
+      <div class="admin-table-wrap" tabindex="0" role="region" aria-label="用户数据表格，可横向滚动">
         <table class="admin-table">
+          <caption class="admin-sr-only">读者账号列表及可执行操作</caption>
           <thead>
             <tr>
-              <th>ID</th>
-              <th>用户名</th>
-              <th>邮箱 / 验证</th>
-              <th>显示名</th>
-              <th>状态</th>
-              <th>余额</th>
-              <th>创建时间</th>
-              <th>操作</th>
+              <th scope="col">ID</th>
+              <th scope="col">用户名</th>
+              <th scope="col">邮箱 / 验证</th>
+              <th scope="col">显示名</th>
+              <th scope="col">状态</th>
+              <th scope="col">余额</th>
+              <th scope="col">创建时间</th>
+              <th scope="col">操作</th>
             </tr>
           </thead>
           <tbody>
             <% if (!users || users.length === 0) { %>
-              <tr><td colspan="8">暂无用户</td></tr>
+              <tr><td colspan="8" class="admin-empty">暂无符合条件的用户</td></tr>
             <% } %>
             <% (users || []).forEach(function(u) { %>
               <tr>
@@ -105,12 +87,12 @@
                     <span class="admin-mono-cell"><%= u.email %></span>
                     <br>
                     <% if (u.emailVerified) { %>
-                      <span style="color:var(--accent);font-size:0.78rem">已验证</span>
+                      <span class="admin-status admin-status-ok">已验证</span>
                     <% } else { %>
-                      <span style="color:#c0392b;font-size:0.78rem">未验证</span>
+                      <span class="admin-status admin-status-error">未验证</span>
                     <% } %>
                   <% } else { %>
-                    <span style="color:var(--muted)">—</span>
+                    <span class="admin-muted">—</span>
                   <% } %>
                 </td>
                 <td><%= u.displayName %></td>
@@ -141,7 +123,7 @@
                     <button type="submit" class="button button-secondary">重置密码</button>
                   </form>
                   <form action="/admin/users/<%= u.id %>/delete" method="post" style="display:inline" onsubmit="return confirm('确定删除用户 <%= u.username %>？书架与进度将一并删除。');">
-                    <button type="submit" class="button button-secondary">删除</button>
+                    <button type="submit" class="button button-danger">删除用户</button>
                   </form>
                 </td>
               </tr>

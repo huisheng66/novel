@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>悬浮 UI 测试页面</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+      padding: 2rem;
+      line-height: 1.8;
+    }
+    .test-section {
+      margin-bottom: 3rem;
+      padding: 2rem;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+    }
+    .test-section h2 {
+      margin-bottom: 1rem;
+      color: #333;
+    }
+    .test-content {
+      height: 2000px;
+      background: linear-gradient(180deg, #f0f0f0 0%, #ffffff 100%);
+      padding: 2rem;
+    }
+    .marker {
+      padding: 1rem;
+      margin: 1rem 0;
+      background: #fffbea;
+      border-left: 4px solid #f59e0b;
+    }
+
+    /* 悬浮搜索框样式 */
+    .chapter-search-island {
+      position: fixed;
+      top: 0.6rem;
+      left: 50%;
+      transform: translate(-50%, -150%);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.5rem 0.35rem 0.9rem;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+      color: #222;
+      opacity: 0;
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.32s ease, background 0.2s ease;
+      pointer-events: none;
+      max-width: calc(100vw - 2rem);
+    }
+    .chapter-search-island.is-visible {
+      transform: translate(-50%, 0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .chapter-search-island.is-focused {
+      background: rgba(255, 255, 255, 0.78);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .chapter-search-form {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin: 0;
+    }
+
+    .chapter-search-input {
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-size: 0.9rem;
+      padding: 0.3rem 0;
+      width: 13rem;
+      outline: none;
+    }
+    .chapter-search-input::placeholder { color: rgba(34, 34, 34, 0.5); }
+
+    .chapter-search-clear {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 1.4rem;
+      height: 1.4rem;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.12);
+      color: #222;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0;
+    }
+    .chapter-search-clear:hover { background: rgba(0, 0, 0, 0.22); }
+
+    .chapter-search-count {
+      font-size: 0.72rem;
+      color: rgba(34, 34, 34, 0.6);
+      white-space: nowrap;
+      padding-right: 0.35rem;
+    }
+
+    /* 返回顶部按钮 */
+    .back-to-top {
+      position: fixed;
+      right: 1.25rem;
+      bottom: 1.25rem;
+      z-index: 90;
+      width: 2.6rem;
+      height: 2.6rem;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.5);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14);
+      color: #222;
+      cursor: pointer;
+      padding: 0;
+      opacity: 0;
+      transform: translateY(1rem);
+      transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease, background 0.2s ease;
+      pointer-events: none;
+    }
+    .back-to-top.is-visible {
+      opacity: 1;
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+    .back-to-top:hover {
+      background: rgba(255, 255, 255, 0.78);
+    }
+    .back-to-top:active {
+      transform: translateY(0) scale(0.94);
+    }
+
+    .debug-info {
+      position: fixed;
+      top: 5rem;
+      right: 1rem;
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-family: monospace;
+      z-index: 999;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-section">
+    <h2>🧪 悬浮 UI 测试页面</h2>
+    <p><strong>测试说明：</strong></p>
+    <ul>
+      <li>向下滚动超过 <strong>300px</strong>，顶部会出现悬浮搜索框</li>
+      <li>向下滚动超过 <strong>500px</strong>，右下角会出现返回顶部按钮</li>
+      <li>右上角显示实时滚动位置（调试信息）</li>
+    </ul>
+  </div>
+
+  <div class="test-content">
+    <div class="marker" style="position: absolute; top: 0;">📍 起点 (0px)</div>
+    <div class="marker" style="position: absolute; top: 300px;">📍 300px - 悬浮搜索框应该出现</div>
+    <div class="marker" style="position: absolute; top: 500px;">📍 500px - 返回顶部按钮应该出现</div>
+    <div class="marker" style="position: absolute; top: 1000px;">📍 1000px - 继续滚动...</div>
+    <div class="marker" style="position: absolute; top: 1500px;">📍 1500px - 快到底了</div>
+  </div>
+
+  <!-- 悬浮搜索框 -->
+  <div class="chapter-search-island" id="chapter-search-island">
+    <form class="chapter-search-form" id="chapter-search-form" autocomplete="off">
+      <input type="search" id="chapter-search-input" class="chapter-search-input" placeholder="搜索章节">
+      <button type="button" class="chapter-search-clear" id="chapter-search-clear">×</button>
+      <span class="chapter-search-count" id="chapter-search-count"></span>
+    </form>
+  </div>
+
+  <!-- 返回顶部按钮 -->
+  <button class="back-to-top" id="back-to-top" type="button">
+    <svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 5l-7 7h4v7h6v-7h4z" fill="currentColor"/></svg>
+  </button>
+
+  <!-- 调试信息 -->
+  <div class="debug-info" id="debug-info">
+    <div>滚动位置: <span id="scroll-y">0</span>px</div>
+    <div>搜索框: <span id="search-status">隐藏</span></div>
+    <div>返回按钮: <span id="back-status">隐藏</span></div>
+  </div>
+
+  <script>
+    (function () {
+      var searchIsland = document.getElementById('chapter-search-island');
+      var searchInput = document.getElementById('chapter-search-input');
+      var searchClear = document.getElementById('chapter-search-clear');
+      var searchCount = document.getElementById('chapter-search-count');
+      var backToTopBtn = document.getElementById('back-to-top');
+
+      // 调试元素
+      var scrollYEl = document.getElementById('scroll-y');
+      var searchStatusEl = document.getElementById('search-status');
+      var backStatusEl = document.getElementById('back-status');
+
+      // 搜索框滚动显示/隐藏
+      var searchShown = false;
+      var searchScrollRaf = 0;
+      function updateSearchIsland() {
+        searchScrollRaf = 0;
+        var shouldShow = window.scrollY > 300;
+        if (shouldShow === searchShown) return;
+        searchShown = shouldShow;
+        searchIsland.classList.toggle('is-visible', shouldShow);
+        searchStatusEl.textContent = shouldShow ? '✅ 显示' : '❌ 隐藏';
+        searchStatusEl.style.color = shouldShow ? '#4ade80' : '#f87171';
+      }
+
+      // 搜索框聚焦/失焦样式
+      searchInput.addEventListener('focus', function () {
+        searchIsland.classList.add('is-focused');
+      });
+      searchInput.addEventListener('blur', function () {
+        searchIsland.classList.remove('is-focused');
+      });
+
+      // 搜索功能
+      var searchForm = document.getElementById('chapter-search-form');
+      searchForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        alert('搜索: ' + searchInput.value);
+      });
+
+      searchInput.addEventListener('input', function () {
+        searchCount.textContent = searchInput.value.trim() ? '按回车搜索' : '';
+      });
+
+      searchClear.addEventListener('click', function () {
+        searchInput.value = '';
+        searchCount.textContent = '';
+        searchInput.focus();
+      });
+
+      // 返回顶部按钮
+      var backShown = false;
+      var backScrollRaf = 0;
+      function updateBackButton() {
+        backScrollRaf = 0;
+        var shouldShow = window.scrollY > 500;
+        if (shouldShow === backShown) return;
+        backShown = shouldShow;
+        backToTopBtn.classList.toggle('is-visible', shouldShow);
+        backStatusEl.textContent = shouldShow ? '✅ 显示' : '❌ 隐藏';
+        backStatusEl.style.color = shouldShow ? '#4ade80' : '#f87171';
+      }
+
+      function handleScroll() {
+        scrollYEl.textContent = Math.round(window.scrollY);
+        if (!searchScrollRaf) searchScrollRaf = requestAnimationFrame(updateSearchIsland);
+        if (!backScrollRaf) backScrollRaf = requestAnimationFrame(updateBackButton);
+      }
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      backToTopBtn.addEventListener('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      // 初始检查
+      updateSearchIsland();
+      updateBackButton();
+    })();
+  </script>
+</body>
+</html>

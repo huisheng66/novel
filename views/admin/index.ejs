@@ -4,45 +4,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260807p">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">后台管理</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'chapters' }) %>
 
   <main class="admin-main">
-    <section class="admin-titlebar admin-titlebar-compact">
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
-        <a class="button button-secondary" href="/admin/users">读者账号</a>
-        <a class="button button-secondary" href="/admin/invites">邀请码</a>
-        <a class="button button-secondary" href="/admin/paywall">付费设置</a>
-        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
-        <% if (currentNovel) { %>
-          <a class="button button-secondary" href="/admin/novels/info?novel_id=<%= currentNovel.id %>">小说信息</a>
-          <a class="button button-secondary" href="/novel/<%= currentNovel.id %>">查看前台</a>
-        <% } else { %>
-          <a class="button button-secondary" href="/admin/novels/info">小说信息</a>
-        <% } %>
+    <section class="admin-titlebar">
+      <div>
+        <h1>章节管理</h1>
+        <p>选择小说后新增、编辑或批量导入章节。</p>
       </div>
+      <% if (currentNovel) { %>
+        <a class="button button-secondary" href="/novel/<%= currentNovel.id %>">查看当前小说</a>
+      <% } %>
     </section>
 
     <% if (notice) { %>
-      <div class="admin-alert admin-alert-ok"><%= notice %></div>
+      <div class="admin-alert admin-alert-ok" role="status"><%= notice %></div>
     <% } %>
     <% if (error) { %>
-      <div class="admin-alert admin-alert-error"><%= error %></div>
+      <div class="admin-alert admin-alert-error" role="alert"><%= error %></div>
     <% } %>
 
     <section class="admin-panel">
@@ -80,16 +63,16 @@
                 <h2>批量上传</h2>
                 <span>自动识别章节标题并拆分正文。</span>
               </div>
-              <form class="admin-form admin-upload" action="/admin/chapters/upload" method="post" enctype="multipart/form-data">
+              <form class="admin-form admin-upload" action="/admin/chapters/upload" method="post" enctype="multipart/form-data" aria-describedby="upload-help" onsubmit="return this.upload_mode.value !== 'replace' || confirm('覆盖导入将删除当前小说的全部章节，且无法撤销。确认继续？');">
                 <input type="hidden" name="novel_id" value="<%= currentNovel.id %>">
                 <div class="admin-upload-mode" role="radiogroup" aria-label="导入方式">
                   <label>
                     <input type="radio" name="upload_mode" value="append" checked>
-                    <span>追加</span>
+                    <span>追加（保留现有章节）</span>
                   </label>
                   <label>
                     <input type="radio" name="upload_mode" value="replace">
-                    <span>覆盖</span>
+                    <span>覆盖（删除现有章节）</span>
                   </label>
                 </div>
                 <div class="admin-grid">
@@ -102,9 +85,9 @@
                     <input type="file" name="chapter_files" accept=".txt,.docx,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" multiple required>
                   </label>
                 </div>
-                <button class="button" type="submit">上传导入</button>
+                <button class="button" type="submit" data-upload-submit>上传导入</button>
               </form>
-              <p class="admin-upload-hint">追加会保留现有章节；覆盖会先删除当前小说章节。支持：第一章 标题、第001章 标题、第十回 标题、Chapter 1、1. 标题。</p>
+              <p class="admin-upload-hint" id="upload-help">追加会保留现有章节；<strong>覆盖会先删除当前小说的全部章节。</strong>支持：第一章 标题、第001章 标题、第十回 标题、Chapter 1、1. 标题。</p>
             </section>
 
             <section class="admin-block admin-chapter-list-block">
@@ -176,6 +159,7 @@
                   <span>管理单章节的新建、修改、删除。</span>
                 <% } %>
               </div>
+              <p class="admin-async-status" data-chapter-status role="status" aria-live="polite" aria-atomic="true"></p>
               <form class="admin-form admin-inline-chapter-form" action="<%= selectedChapter ? '/admin/chapters/' + selectedChapter.id : '/admin/chapters' %>" method="post">
                 <input type="hidden" name="novel_id" value="<%= currentNovel.id %>">
                 <div class="admin-grid">
@@ -216,6 +200,6 @@
       <% } %>
     </section>
   </main>
-  <script src="/js/admin.js?v=20260807p" defer></script>
+  <script src="/js/admin.js?v=20261101a" defer></script>
 </body>
 </html>

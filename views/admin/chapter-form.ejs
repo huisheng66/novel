@@ -4,35 +4,23 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title><%= mode === 'edit' ? '编辑章节' : '新增章节' %> - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260807n">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/admin<%= currentNovel ? '?novel_id=' + currentNovel.id : '' %>" class="site-name">后台管理</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current"><%= mode === 'edit' ? '编辑章节' : '新增章节' %></span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'chapters' }) %>
 
   <main class="admin-main admin-editor-main">
     <section class="admin-titlebar">
-      <a class="button button-secondary" href="/admin/dashboard">仪表盘</a>
       <div>
         <h1><%= mode === 'edit' ? '编辑章节' : '新增章节' %></h1>
         <p>维护章节编号、标题和正文内容。</p>
       </div>
-      <a class="button button-secondary" href="/admin<%= currentNovel ? '?novel_id=' + currentNovel.id : '' %>">返回列表</a>
+      <a class="button button-secondary" href="/admin<%= currentNovel ? '?novel_id=' + currentNovel.id : '' %>">返回章节列表</a>
     </section>
 
     <% if (error) { %>
-      <div class="admin-alert admin-alert-error"><%= error %></div>
+      <div class="admin-alert admin-alert-error" role="alert"><%= error %></div>
     <% } %>
 
     <section class="admin-block">

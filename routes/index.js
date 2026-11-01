@@ -124,7 +124,12 @@ router.get('/novel/:id', async (req, res, next) => {
       novel,
       chapters,
       baseUrl: getBaseUrl(req),
-      paywall: { enabled: rule.enabled, freeUntil: rule.freeUntil, overrides }
+      paywall: {
+        enabled: rule.enabled,
+        freeUntil: rule.freeUntil,
+        overrides,
+        unlockFullPrice: rule.unlockFullPrice || null
+      }
     });
   } catch (err) {
     next(err);
@@ -186,6 +191,11 @@ router.get('/novel/:id/:chapterNum', async (req, res, next) => {
         // 登录用户带上余额，解锁卡片可以直接给出「买得起/需充值」的判断
         const wallet = userId ? await walletApi.getWallet(userId) : null;
 
+        // 获取按本解锁的价格
+        const rule = await paywall.resolveRule(id);
+        const unlockFullPrice = rule.unlockFullPrice || null;
+        const hasUnlocked = userId ? await paywall.hasUnlockedFull(userId, id) : false;
+
         return res.render('chapter-locked', {
           novel,
           chapter,
@@ -193,6 +203,8 @@ router.get('/novel/:id/:chapterNum', async (req, res, next) => {
           nextChapter,
           baseUrl,
           price: access.price,
+          unlockFullPrice,
+          hasUnlocked,
           teaser: paywall.teaserOf(chapter.content, 400),
           loggedIn: Boolean(userId),
           balance: wallet ? wallet.balance : null,

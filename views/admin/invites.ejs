@@ -4,38 +4,22 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>邀请码 - 后台管理</title>
-  <link rel="stylesheet" href="/css/main.css">
-  <link rel="stylesheet" href="/css/admin.css?v=20260809i">
+  <link rel="stylesheet" href="/css/main.css?v=20261101a">
+  <link rel="stylesheet" href="/css/admin.css?v=20261101a">
 </head>
 <body class="admin-body">
-  <header id="site-header" class="admin-header">
-    <div class="header-inner admin-header-inner">
-      <div>
-        <a href="/" class="site-name">阅读前台</a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current">邀请码</span>
-      </div>
-      <form action="/admin/logout" method="post">
-        <button type="submit">退出登录</button>
-      </form>
-    </div>
-  </header>
+  <%- include('../partials/admin-header', { activePage: 'invites' }) %>
 
   <main class="admin-main admin-token-main">
     <section class="admin-titlebar">
       <div>
-        <h1>邀请码（一次一码）</h1>
-        <p>自助注册（Web / App）必须填写未使用的邀请码；每个码只能注册成功一次。后台直接建号不需要邀请码。</p>
-      </div>
-      <div class="admin-title-actions">
-        <a class="button button-secondary" href="/admin/users">读者账号</a>
-        <a class="button button-secondary" href="/admin">章节管理</a>
-        <a class="button button-secondary" href="/admin/tokens">Token 用户</a>
+        <h1>邀请码</h1>
+        <p>生成并管理一次性注册邀请码；后台直接创建账号无需邀请码。</p>
       </div>
     </section>
 
-    <% if (notice) { %><div class="admin-alert admin-alert-ok"><%= notice %></div><% } %>
-    <% if (error) { %><div class="admin-alert admin-alert-error"><%= error %></div><% } %>
+    <% if (notice) { %><div class="admin-alert admin-alert-ok" role="status"><%= notice %></div><% } %>
+    <% if (error) { %><div class="admin-alert admin-alert-error" role="alert"><%= error %></div><% } %>
 
     <% if (lastCodes && lastCodes.length) { %>
       <section class="admin-block">
@@ -77,22 +61,23 @@
           <a class="button button-secondary" href="/admin/invites?status=all">全部</a>
         </div>
       </div>
-      <div class="admin-table-wrap">
+      <div class="admin-table-wrap" tabindex="0" role="region" aria-label="邀请码数据表格，可横向滚动">
         <table class="admin-table">
+          <caption class="admin-sr-only">邀请码状态、使用情况及可执行操作</caption>
           <thead>
             <tr>
-              <th>码</th>
-              <th>状态</th>
-              <th>备注</th>
-              <th>创建时间</th>
-              <th>使用时间</th>
-              <th>使用者 ID</th>
-              <th></th>
+              <th scope="col">码</th>
+              <th scope="col">状态</th>
+              <th scope="col">备注</th>
+              <th scope="col">创建时间</th>
+              <th scope="col">使用时间</th>
+              <th scope="col">使用者 ID</th>
+              <th scope="col">操作</th>
             </tr>
           </thead>
           <tbody>
             <% if (!invites || !invites.length) { %>
-              <tr><td colspan="7">暂无</td></tr>
+              <tr><td colspan="7" class="admin-empty">当前筛选下暂无邀请码</td></tr>
             <% } %>
             <% (invites || []).forEach(function(inv) { %>
               <tr>
@@ -105,7 +90,7 @@
                 <td>
                   <% if (inv.status === 'unused') { %>
                     <form action="/admin/invites/<%= inv.id %>/delete" method="post" style="display:inline" onsubmit="return confirm('删除未使用码 <%= inv.code %>？');">
-                      <button type="submit" class="button button-secondary">删除</button>
+                      <button type="submit" class="button button-danger">删除邀请码</button>
                     </form>
                   <% } %>
                 </td>

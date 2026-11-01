@@ -3,52 +3,32 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>登录 - 书库</title>
-  <link rel="stylesheet" href="/css/main.css?v=20260809a">
-  <style>
-    .auth-page { max-width: 22rem; margin: 3rem auto; padding: 0 1.25rem; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
-    .auth-page h1 { font-size: 1.35rem; margin-bottom: 0.35rem; }
-    .auth-page .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.25rem; line-height: 1.5; }
-    .auth-page label { display: block; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--muted); }
-    .auth-page input { display: block; width: 100%; margin-top: 0.35rem; padding: 0.55rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; color: var(--text); background: var(--bg); }
-    .auth-page button { width: 100%; margin-top: 0.5rem; padding: 0.65rem; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
-    .auth-page button:hover { opacity: 0.9; }
-    .auth-alert { padding: 0.65rem 0.75rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; }
-    .auth-alert-error { background: #fdecea; color: #b71c1c; }
-    .auth-alert-ok { background: #e8f5e9; color: #1b5e20; }
-    .auth-links { margin-top: 1rem; font-size: 0.85rem; color: var(--muted); display: flex; justify-content: space-between; gap: 1rem; }
-  </style>
+  <title>登录｜书库</title>
+  <link rel="stylesheet" href="/css/main.css?v=20261031a">
+  <script src="/js/site.js?v=20261031a" defer></script>
 </head>
-<body>
-  <main class="auth-page">
-    <h1>登录</h1>
-    <p class="hint">Web 与 App（ReadAny）使用同一账号，可用<strong>邮箱</strong>或用户名登录。注册邀请码选填。</p>
-
-    <% if (error) { %><div class="auth-alert auth-alert-error"><%= error %></div><% } %>
-    <% if (notice) { %><div class="auth-alert auth-alert-ok"><%= notice %></div><% } %>
-
-    <form method="post" action="/login" autocomplete="on">
+<body class="auth-body">
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <header class="auth-header"><a class="site-name" href="/">书库</a><a href="/">返回书库</a></header>
+  <main class="auth-page" id="main-content">
+    <p class="page-eyebrow">欢迎回来</p>
+    <h1>登录账号</h1>
+    <p class="hint">使用邮箱或用户名登录。登录后可同步阅读进度、充值并解锁付费章节。</p>
+    <% if (error) { %><div class="auth-alert auth-alert-error" role="alert"><%= error %></div><% } %>
+    <% if (notice) { %><div class="auth-alert auth-alert-ok" role="status"><%= notice %></div><% } %>
+    <form method="post" action="/login" autocomplete="on" data-loading="正在登录…">
       <input type="hidden" name="next" value="<%= nextPath || '/' %>">
-      <label>
-        邮箱或用户名
-        <input type="text" name="email" required maxlength="255" placeholder="you@example.com" autocomplete="username">
-      </label>
-      <label>
-        密码
-        <input type="password" name="password" required minlength="8" placeholder="至少 8 位" autocomplete="current-password">
-      </label>
-      <button type="submit">登录</button>
+      <label for="login-name">邮箱或用户名</label>
+      <input id="login-name" type="text" name="email" required maxlength="255" placeholder="you@example.com 或用户名" autocomplete="username" autofocus>
+      <label for="login-password">密码</label>
+      <input id="login-password" type="password" name="password" required minlength="8" placeholder="输入密码" autocomplete="current-password">
+      <button class="button button-primary" type="submit">登录</button>
     </form>
-
     <div class="auth-links">
       <a href="/forgot-password">忘记密码？</a>
-      <% if (registerEnabled) { %>
-        <a href="/register?next=<%= encodeURIComponent(nextPath || '/') %>">注册账号</a>
-      <% } else { %>
-        <span>注册已关闭，请联系管理员</span>
-      <% } %>
-      <a href="/">返回</a>
+      <% if (registerEnabled) { %><a href="/register?next=<%= encodeURIComponent(nextPath || '/') %>">没有账号？注册</a><% } else { %><span>注册已关闭，请联系管理员</span><% } %>
     </div>
+    <p class="auth-footnote">网页与 ReadAny App 使用同一账号。</p>
   </main>
 </body>
 </html>

@@ -4,115 +4,102 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="robots" content="noindex">
-  <title><%= chapter.readerTitle || chapter.title %>_<%= novel.title %></title>
-  <link rel="stylesheet" href="/css/main.css?v=20260807f">
+  <title><%= chapter.readerTitle || chapter.title %>｜<%= novel.title %></title>
+  <link rel="stylesheet" href="/css/main.css?v=20261031a">
+  <script src="/js/site.js?v=20261031a" defer></script>
   <script>
-    (function() {
-      var theme = localStorage.getItem('reader-theme');
-      if (theme) document.documentElement.setAttribute('data-reader-theme', theme);
-      var fontSize = localStorage.getItem('reader-font-size');
-      if (fontSize) document.documentElement.style.setProperty('--reader-font-size', fontSize);
+    (function () {
+      try {
+        var theme = localStorage.getItem('reader-theme');
+        if (theme) document.documentElement.setAttribute('data-reader-theme', theme);
+        var fontSize = localStorage.getItem('reader-font-size');
+        if (fontSize) document.documentElement.style.setProperty('--reader-font-size', fontSize);
+      } catch (e) {}
     })();
   </script>
 </head>
 <body>
-  <header id="site-header" class="reader-chrome">
-    <div class="header-inner">
-      <span class="header-crumbs">
-        <a href="/novel/<%= novel.id %>"><%= novel.title %></a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current"><%= chapter.readerTitle || chapter.title %></span>
-      </span>
-      <span class="header-actions">
-        <a class="header-shelf" href="/" title="返回书架">书架</a>
-        <span id="header-auth"><a href="/login">登录</a></span>
-      </span>
-    </div>
-  </header>
+  <%- include('partials/site-header', { currentPage: 'library', breadcrumb: novel.title, serverLoggedIn: loggedIn }) %>
 
-  <main>
+  <main id="main-content">
     <div class="reader-chrome">
       <nav class="chapter-navigation chapter-navigation-top" aria-label="章节导航">
-        <% if (prevChapter) { %>
-          <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>" rel="prev" class="nav-prev" title="<%= prevChapter.title %>">&larr; 上一章</a>
-        <% } else { %>
-          <span class="nav-placeholder"></span>
-        <% } %>
-        <a href="/novel/<%= novel.id %>" class="nav-toc">目录</a>
-        <% if (nextChapter) { %>
-          <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>" rel="next" class="nav-next" title="<%= nextChapter.title %>">下一章 &rarr;</a>
-        <% } else { %>
-          <span class="nav-placeholder"></span>
-        <% } %>
+        <% if (prevChapter) { %><a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>" rel="prev" class="nav-prev" title="<%= prevChapter.title %>">← 上一章</a><% } else { %><span class="nav-placeholder">已是第一章</span><% } %>
+        <a href="/novel/<%= novel.id %>" class="nav-toc">返回目录</a>
+        <% if (nextChapter) { %><a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>" rel="next" class="nav-next" title="<%= nextChapter.title %>">下一章 →</a><% } else { %><span class="nav-placeholder">已是最新章</span><% } %>
       </nav>
     </div>
 
-    <div class="content_read" id="wrapper">
+    <article class="content_read" id="wrapper" aria-labelledby="chapter-heading">
       <div class="box_con chapter-content">
-        <div class="bookname chapter-header">
+        <header class="bookname chapter-header">
+          <a class="chapter-book-link" href="/novel/<%= novel.id %>"><%= novel.title %></a>
           <h1 id="chapter-heading"><%= chapter.readerTitle || chapter.title %></h1>
-        </div>
+        </header>
 
-        <% if (notice) { %><div class="wallet-alert wallet-alert-ok"><%= notice %></div><% } %>
-        <% if (error) { %><div class="wallet-alert wallet-alert-error"><%= error %></div><% } %>
-
+        <% if (notice) { %><div class="wallet-alert wallet-alert-ok" role="status"><%= notice %></div><% } %>
+        <% if (error) { %><div class="wallet-alert wallet-alert-error" role="alert"><%= error %></div><% } %>
         <% if (teaser) { %>
-          <div id="content" class="chapter-body content showtxt entry-content chapter-teaser" itemprop="articleBody">
-            <p><%= teaser %></p>
-          </div>
+          <div id="content" class="chapter-body content showtxt entry-content chapter-teaser" itemprop="articleBody"><p><%= teaser %></p></div>
         <% } %>
 
-        <section class="chapter-paywall" aria-label="付费解锁">
-          <p class="chapter-paywall-title">本章为付费章节</p>
-          <% if (price > 0) { %>
-            <p class="chapter-paywall-price">¥<%= (price / 100).toFixed(2) %></p>
-          <% } else { %>
-            <p class="chapter-paywall-price">需解锁</p>
-          <% } %>
-          <% if (!loggedIn) { %>
-            <p class="chapter-paywall-tip">登录后即可购买本章</p>
-            <a class="chapter-paywall-cta" href="/login?next=<%= encodeURIComponent('/novel/' + novel.id + '/' + chapter.chapter_number) %>">登录 / 注册</a>
-          <% } else { %>
-            <p class="chapter-paywall-tip">
-              当前余额 ¥<%= (Number(balance || 0) / 100).toFixed(2) %>
-              <% if (price > 0 && Number(balance || 0) < price) { %>
-                · 还差 ¥<%= ((price - Number(balance || 0)) / 100).toFixed(2) %>
+        <section class="chapter-paywall" aria-labelledby="paywall-title">
+          <p class="page-eyebrow">试读结束</p>
+          <h2 class="chapter-paywall-title" id="paywall-title">解锁本章后继续阅读</h2>
+
+          <% if (unlockFullPrice && unlockFullPrice > 0 && !hasUnlocked) { %>
+            <div style="background:var(--surface-2,#0F131C);padding:1.25rem;border-radius:12px;margin-bottom:1.5rem;border:1px solid var(--border,rgba(255,255,255,0.08))">
+              <h3 style="margin:0 0 0.75rem;font-size:1rem;color:var(--text,#fff);font-weight:600">按本解锁整本书</h3>
+              <p style="margin:0 0 0.5rem;color:var(--muted,rgba(255,255,255,0.7));font-size:0.9rem">一次性解锁《<%= novel.title %>》所有付费章节</p>
+              <p style="margin:0 0 1rem;font-size:1.5rem;font-weight:700;color:var(--accent,#38BDF8)">¥<%= (unlockFullPrice / 100).toFixed(2) %></p>
+              <% if (loggedIn) { %>
+                <% if (Number(balance || 0) >= unlockFullPrice) { %>
+                  <form action="/novel/<%= novel.id %>/buy-full" method="post" style="margin:0" data-loading="正在解锁…">
+                    <button class="button button-primary" type="submit" style="width:100%">解锁整本书 · ¥<%= (unlockFullPrice / 100).toFixed(2) %></button>
+                  </form>
+                <% } else { %>
+                  <a class="button button-secondary" href="/wallet" style="display:block;text-align:center;width:100%;box-sizing:border-box">余额不足，去充值（还差 ¥<%= ((unlockFullPrice - Number(balance || 0)) / 100).toFixed(2) %>）</a>
+                <% } %>
+              <% } else { %>
+                <a class="button button-primary" href="/login?next=<%= encodeURIComponent('/novel/' + novel.id + '/' + chapter.chapter_number) %>" style="display:block;text-align:center;width:100%;box-sizing:border-box">登录后解锁整本</a>
               <% } %>
-            </p>
+              <p style="margin:0.75rem 0 0;font-size:0.85rem;color:var(--muted,rgba(255,255,255,0.6));text-align:center">或单独购买本章 ↓</p>
+            </div>
+          <% } %>
+
+          <% if (hasUnlocked) { %>
+            <div style="background:var(--surface-2,#0F131C);padding:1rem;border-radius:8px;margin-bottom:1rem;border:1px solid rgba(110,231,183,0.2)">
+              <p style="margin:0;color:#6EE7B7;font-size:0.9rem">✓ 你已解锁整本《<%= novel.title %>》，刷新页面即可阅读</p>
+            </div>
+          <% } %>
+
+          <% if (price > 0) { %><p class="chapter-paywall-price">单章价格：¥<%= (price / 100).toFixed(2) %></p><% } else { %><p class="chapter-paywall-price">需要解锁</p><% } %>
+          <% if (!loggedIn) { %>
+            <p class="chapter-paywall-tip">登录后可使用余额购买，本章会永久加入你的已购章节。</p>
+            <a class="button button-primary chapter-paywall-cta" href="/login?next=<%= encodeURIComponent('/novel/' + novel.id + '/' + chapter.chapter_number) %>">登录并解锁</a>
+            <p class="chapter-paywall-tip">没有账号？登录页也可以注册。</p>
+          <% } else { %>
+            <p class="chapter-paywall-tip">当前余额 ¥<%= (Number(balance || 0) / 100).toFixed(2) %><% if (price > 0 && Number(balance || 0) < price) { %>，还差 ¥<%= ((price - Number(balance || 0)) / 100).toFixed(2) %><% } %></p>
             <% if (price > 0 && Number(balance || 0) < price) { %>
-              <a class="chapter-paywall-cta" href="/wallet">去充值</a>
+              <a class="button button-primary chapter-paywall-cta" href="/wallet">余额不足，去充值</a>
             <% } else { %>
-              <form action="/novel/<%= novel.id %>/<%= chapter.chapter_number %>/buy" method="post" style="margin:0">
-                <button class="chapter-paywall-cta" type="submit" style="border:0;cursor:pointer">
-                  <%= price > 0 ? ('购买本章 ¥' + (price / 100).toFixed(2)) : '解锁本章' %>
-                </button>
+              <form action="/novel/<%= novel.id %>/<%= chapter.chapter_number %>/buy" method="post" data-loading="正在解锁…">
+                <button class="button button-primary chapter-paywall-cta" type="submit"><%= price > 0 ? ('确认购买 · ¥' + (price / 100).toFixed(2)) : '确认解锁本章' %></button>
               </form>
+              <p class="chapter-paywall-tip">购买后会立即扣款并显示完整正文。</p>
             <% } %>
-            <p class="chapter-paywall-tip" style="margin-top:0.75rem">
-              <a href="/wallet">查看余额与消费记录</a>
-            </p>
+            <p class="chapter-paywall-tip"><a href="/wallet">查看余额、充值与消费记录</a></p>
           <% } %>
         </section>
       </div>
-    </div>
+    </article>
 
     <nav class="chapter-navigation chapter-navigation-bottom reader-chrome bottem2" aria-label="章节导航">
-      <% if (prevChapter) { %>
-        <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>" rel="prev" class="nav-prev" title="<%= prevChapter.title %>">&larr; 上一章</a>
-      <% } else { %>
-        <span class="nav-placeholder"></span>
-      <% } %>
-      <a href="/novel/<%= novel.id %>" class="nav-toc">目录</a>
-      <% if (nextChapter) { %>
-        <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>" rel="next" class="nav-next" title="<%= nextChapter.title %>">下一章 &rarr;</a>
-      <% } else { %>
-        <span class="nav-placeholder"></span>
-      <% } %>
+      <% if (prevChapter) { %><a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>" rel="prev" class="nav-prev">← 上一章</a><% } else { %><span class="nav-placeholder">已是第一章</span><% } %>
+      <a href="/novel/<%= novel.id %>" class="nav-toc">返回目录</a>
+      <% if (nextChapter) { %><a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>" rel="next" class="nav-next">下一章 →</a><% } else { %><span class="nav-placeholder">已是最新章</span><% } %>
     </nav>
   </main>
-
-  <footer id="site-footer" class="reader-chrome">
-    <p></p>
-  </footer>
+  <footer id="site-footer" class="reader-chrome"><p><a href="/novel/<%= novel.id %>">返回《<%= novel.title %>》目录</a></p></footer>
 </body>
 </html>

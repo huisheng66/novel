@@ -3,45 +3,31 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>注册 - 书库</title>
-  <link rel="stylesheet" href="/css/main.css?v=20260809a">
-  <style>
-    .auth-page { max-width: 22rem; margin: 3rem auto; padding: 0 1.25rem; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
-    .auth-page h1 { font-size: 1.35rem; margin-bottom: 0.35rem; }
-    .auth-page .hint { color: var(--muted); font-size: 0.85rem; margin-bottom: 1.25rem; line-height: 1.5; }
-    .auth-page label { display: block; margin-bottom: 0.85rem; font-size: 0.85rem; color: var(--muted); }
-    .auth-page input { display: block; width: 100%; margin-top: 0.35rem; padding: 0.55rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; font: inherit; color: var(--text); background: var(--bg); }
-    .auth-page button { width: 100%; margin-top: 0.5rem; padding: 0.65rem; border: 0; border-radius: 6px; background: var(--accent); color: #fff; font: inherit; cursor: pointer; }
-    .auth-alert { padding: 0.65rem 0.75rem; border-radius: 6px; font-size: 0.85rem; margin-bottom: 1rem; background: #fdecea; color: #b71c1c; }
-    .auth-links { margin-top: 1rem; font-size: 0.85rem; }
-  </style>
+  <title>注册｜书库</title>
+  <link rel="stylesheet" href="/css/main.css?v=20261031a">
+  <script src="/js/site.js?v=20261031a" defer></script>
 </head>
-<body>
-  <main class="auth-page">
+<body class="auth-body">
+  <a class="skip-link" href="#main-content">跳到主要内容</a>
+  <header class="auth-header"><a class="site-name" href="/">书库</a><a href="/">返回书库</a></header>
+  <main class="auth-page" id="main-content">
+    <p class="page-eyebrow">创建账号</p>
     <h1>注册</h1>
-    <p class="hint">用<strong>邮箱</strong>注册，账号可在网页与 ReadAny App 通用。邀请码<strong>选填</strong>——有就填，没有也能注册。</p>
-    <% if (error) { %><div class="auth-alert"><%= error %></div><% } %>
-    <form method="post" action="/register" autocomplete="on">
+    <p class="hint">使用邮箱注册，注册成功后会自动登录。显示名和邀请码都可以留空。</p>
+    <% if (error) { %><div class="auth-alert auth-alert-error" role="alert"><%= error %></div><% } %>
+    <form method="post" action="/register" autocomplete="on" data-loading="正在注册…">
       <input type="hidden" name="next" value="<%= nextPath || '/' %>">
-      <label>
-        邮箱
-        <input type="email" name="email" required maxlength="255" placeholder="you@example.com" autocomplete="email">
-      </label>
-      <label>
-        密码
-        <input type="password" name="password" required minlength="8" placeholder="至少 8 位" autocomplete="new-password">
-      </label>
-      <label>
-        显示名（可选）
-        <input type="text" name="displayName" maxlength="100" placeholder="留空则用邮箱前缀" autocomplete="nickname">
-      </label>
-      <label>
-        邀请码（选填）
-        <input type="text" name="inviteCode" maxlength="32" placeholder="有就填，如 INV-XXXXXXXX" autocomplete="off" style="text-transform:uppercase">
-      </label>
-      <button type="submit">注册并登录</button>
+      <label for="register-email">邮箱 <span class="required-mark">必填</span></label>
+      <input id="register-email" type="email" name="email" required maxlength="255" placeholder="you@example.com" autocomplete="email" autofocus>
+      <label for="register-password">密码 <span class="required-mark">至少 8 位</span></label>
+      <input id="register-password" type="password" name="password" required minlength="8" placeholder="设置登录密码" autocomplete="new-password">
+      <label for="register-name">显示名 <span class="optional-mark">选填</span></label>
+      <input id="register-name" type="text" name="displayName" maxlength="100" placeholder="留空则使用邮箱前缀" autocomplete="nickname">
+      <label for="register-invite">邀请码 <span class="optional-mark">选填</span></label>
+      <input id="register-invite" class="uppercase-input" type="text" name="inviteCode" maxlength="32" placeholder="有邀请码时填写" autocomplete="off">
+      <button class="button button-primary" type="submit">注册并登录</button>
     </form>
-    <p class="auth-links"><a href="/login?next=<%= encodeURIComponent(nextPath || '/') %>">已有账号？去登录</a></p>
+    <div class="auth-links"><a href="/login?next=<%= encodeURIComponent(nextPath || '/') %>">已有账号？去登录</a></div>
   </main>
 </body>
 </html>

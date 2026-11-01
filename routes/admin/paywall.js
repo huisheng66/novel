@@ -38,7 +38,7 @@ async function loadPageData() {
   const [novels] = await pool.execute(`
     SELECT n.id, n.title, n.last_chapter_number, n.cover_image,
            (SELECT COUNT(*) FROM chapters c WHERE c.novel_id = n.id) AS chapter_count,
-           p.enabled, p.free_until_chapter, p.price_per_chapter
+           p.enabled, p.free_until_chapter, p.price_per_chapter, p.unlock_full_price
     FROM novels n
     LEFT JOIN novel_paywall p ON p.novel_id = n.id
     ORDER BY n.id ASC
@@ -57,7 +57,10 @@ async function loadPageData() {
         : Number(row.free_until_chapter),
       price: row.price_per_chapter === null || row.price_per_chapter === undefined
         ? settings.defaultPrice
-        : Number(row.price_per_chapter)
+        : Number(row.price_per_chapter),
+      unlockFullPrice: row.unlock_full_price !== null && row.unlock_full_price !== undefined
+        ? Number(row.unlock_full_price)
+        : null
     }))
   };
 }
@@ -109,15 +112,19 @@ router.post('/paywall/novels/:id', async (req, res, next) => {
     const enabled = req.body.enabled === '1' ? 1 : 0;
     const freeUntil = intOrZero(req.body.free_until_chapter);
     const price = yuanToCents(req.body.price_per_chapter);
+    const unlockFullPrice = req.body.unlock_full_price && req.body.unlock_full_price.trim()
+      ? yuanToCents(req.body.unlock_full_price)
+      : null;
 
     await pool.execute(
-      `INSERT INTO novel_paywall (novel_id, enabled, free_until_chapter, price_per_chapter)
-       VALUES (?, ?, ?, ?)
+      `INSERT INTO novel_paywall (novel_id, enabled, free_until_chapter, price_per_chapter, unlock_full_price)
+       VALUES (?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          enabled = VALUES(enabled),
          free_until_chapter = VALUES(free_until_chapter),
-         price_per_chapter = VALUES(price_per_chapter)`,
-      [novelId, enabled, freeUntil, price]
+         price_per_chapter = VALUES(price_per_chapter),
+         unlock_full_price = VALUES(unlock_full_price)`,
+      [novelId, enabled, freeUntil, price, unlockFullPrice]
     );
 
     paywall.clearCache(novelId);

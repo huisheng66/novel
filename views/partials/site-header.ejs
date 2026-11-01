@@ -1,0 +1,25 @@
+<a class="skip-link" href="#main-content">跳到主要内容</a>
+<header id="site-header">
+  <div class="header-inner">
+    <div class="header-crumbs" aria-label="当前位置">
+      <a class="site-name" href="/">书库</a>
+      <% if (typeof breadcrumb !== 'undefined' && breadcrumb) { %>
+        <span class="breadcrumb" aria-hidden="true">/</span>
+        <span class="breadcrumb-current"><%= breadcrumb %></span>
+      <% } %>
+    </div>
+    <nav class="header-actions" aria-label="全站导航">
+      <a class="header-nav-link" href="/"<%= currentPage === 'library' ? ' aria-current="page"' : '' %>>书库</a>
+      <a class="header-nav-link" href="/wallet" data-account-entry<%= currentPage === 'account' ? ' aria-current="page"' : '' %>>我的</a>
+      <% if (typeof serverLoggedIn !== 'undefined') { %>
+        <% if (serverLoggedIn) { %>
+          <a class="header-nav-link" href="/logout">退出</a>
+        <% } else { %>
+          <a class="header-nav-link" href="/login">登录</a>
+        <% } %>
+      <% } else { %>
+        <span id="header-auth" data-client-auth><a class="header-nav-link" href="/login">登录</a></span>
+      <% } %>
+    </nav>
+  </div>
+</header>

@@ -138,13 +138,26 @@
       // 浮动搜索框显示/隐藏
       var searchShown = false;
       var scrollRaf = 0;
+      var hasContent = false;
+
       function updateFloatingSearch() {
         scrollRaf = 0;
-        var shouldShow = window.scrollY > 300;
+        // 如果有输入内容，始终显示；否则根据滚动位置
+        var shouldShow = hasContent || window.scrollY > 300;
         if (shouldShow === searchShown) return;
         searchShown = shouldShow;
         floatingIsland.classList.toggle('is-visible', shouldShow);
       }
+
+      // 监听输入内容变化
+      if (floatingInput) {
+        var originalInputListener = floatingInput.oninput;
+        floatingInput.addEventListener('input', function () {
+          hasContent = floatingInput.value.trim().length > 0;
+          updateFloatingSearch();
+        });
+      }
+
       window.addEventListener('scroll', function () {
         if (!scrollRaf) scrollRaf = requestAnimationFrame(updateFloatingSearch);
       }, { passive: true });

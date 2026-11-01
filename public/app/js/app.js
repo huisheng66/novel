@@ -1,7 +1,7 @@
 // 路由与启动：hash 路由 + 登录守卫 + 顶栏/底栏切换
 
 import * as store from './store.js';
-import { el, clear } from './ui.js';
+import { el, clear } from './ui.js?v=20261101a';
 import {
   LoginScreen,
   RegisterScreen,
@@ -10,7 +10,7 @@ import {
   BookScreen,
   ReaderScreen,
   WalletScreen
-} from './screens.js';
+} from './screens.js?v=20261101a';
 
 const view = document.getElementById('view');
 const titleEl = document.getElementById('title');
@@ -23,7 +23,7 @@ const ROUTES = [
   { re: /^#\/library$/, screen: LibraryScreen, tab: 'library' },
   { re: /^#\/shelf$/, screen: ShelfScreen, tab: 'shelf' },
   { re: /^#\/wallet$/, screen: WalletScreen, tab: 'wallet' },
-  { re: /^#\/book\/(\d+)$/, screen: BookScreen, params: ['id'] },
+  { re: /^#\/book\/(\d+)$/, screen: BookScreen, params: ['id'], tab: 'library' },
   { re: /^#\/read\/(\d+)\/(\d+)$/, screen: ReaderScreen, params: ['id', 'n'] }
 ];
 
@@ -72,7 +72,11 @@ async function render() {
   document.body.classList.remove('reading');
   backBtn.hidden = true;
   clear(view);
-  view.appendChild(el('div', { class: 'spinner' }));
+  view.setAttribute('aria-busy', 'true');
+  view.appendChild(el('div', { class: 'loading-state', role: 'status' },
+    el('span', { class: 'spinner', 'aria-hidden': 'true' }),
+    el('span', { text: '页面加载中…' })
+  ));
 
   let result = null;
   try {
@@ -88,9 +92,12 @@ async function render() {
   // 用户在加载期间又点了别的地方：丢弃这次结果
   if (mySeq !== seq || !result) return;
 
-  titleEl.textContent = result.title || '书库';
+  const pageTitle = result.title || '书库';
+  titleEl.textContent = pageTitle;
+  document.title = pageTitle === '书库' ? '书库' : `${pageTitle} - 书库`;
   clear(view);
   view.appendChild(result.node);
+  view.setAttribute('aria-busy', 'false');
 
   cleanup = result.cleanup || null;
   backBtn.hidden = !result.back;
@@ -98,9 +105,13 @@ async function render() {
   tabbar.style.display = result.reading ? 'none' : '';
 
   for (const link of tabbar.querySelectorAll('a')) {
-    link.classList.toggle('active', link.dataset.tab === route.tab);
+    const current = link.dataset.tab === route.tab;
+    link.classList.toggle('active', current);
+    if (current) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
   }
 
+  view.focus({ preventScroll: true });
   if (!result.reading) window.scrollTo(0, 0);
 }
 
