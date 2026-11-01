@@ -783,9 +783,29 @@ button, a { -webkit-tap-highlight-color: transparent; }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 [hidden] { display: none !important; }
 
+/* 去除所有键盘焦点的视觉效果 */
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-  outline: 3px solid var(--accent);
-  outline-offset: 3px;
+  outline: none;
+}
+
+/* 去除链接焦点时的光标 */
+a:focus {
+  outline: none;
+  cursor: default;
+}
+
+/* 章节列表链接焦点时无视觉变化 */
+.chapter-list-ol a:focus {
+  outline: none;
+  background: transparent;
+  color: inherit;
+}
+
+/* 书库卡片链接焦点时无视觉变化 */
+.library-grid a:focus {
+  outline: none;
+  background: transparent;
+  box-shadow: none;
 }
 
 /* 跳转链接 - 隐藏 */
