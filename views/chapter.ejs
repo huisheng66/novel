@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="<%= novel.title %> <%= chapter.readerTitle || chapter.title %> 正文">
-  <title><%= chapter.readerTitle || chapter.title %>_<%= novel.title %></title>
+  <title><%= chapter.readerTitle || chapter.title %>｜<%= novel.title %></title>
   <link rel="canonical" href="<%= baseUrl %>/novel/<%= novel.id %>/<%= chapter.chapter_number %>">
   <meta property="og:title" content="<%= chapter.readerTitle || chapter.title %> - <%= novel.title %>">
   <meta property="og:description" content="<%= novel.description || novel.title %>">
@@ -13,285 +13,322 @@
   <% if (novel.cover_image) { %>
     <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
   <% } %>
-  <link rel="stylesheet" href="/css/main.css?v=20260807f">
+  <link rel="stylesheet" href="/css/main.css?v=20261031a">
+  <script src="/js/site.js?v=20261031a" defer></script>
   <script>
-    (function() {
-      var theme = localStorage.getItem('reader-theme');
-      if (theme) document.documentElement.setAttribute('data-reader-theme', theme);
-      var fontSize = localStorage.getItem('reader-font-size');
-      if (fontSize) document.documentElement.style.setProperty('--reader-font-size', fontSize);
+    (function () {
+      try {
+        var theme = localStorage.getItem('reader-theme');
+        if (theme) document.documentElement.setAttribute('data-reader-theme', theme);
+        var fontSize = localStorage.getItem('reader-font-size');
+        if (fontSize) document.documentElement.style.setProperty('--reader-font-size', fontSize);
+      } catch (e) {}
     })();
   </script>
 </head>
 <body>
-  <header id="site-header" class="reader-chrome">
-    <div class="header-inner">
-      <span class="header-crumbs">
-        <a href="/novel/<%= novel.id %>"><%= novel.title %></a>
-        <span class="breadcrumb"> / </span>
-        <span class="breadcrumb-current"><%= chapter.readerTitle || chapter.title %></span>
-      </span>
-      <span class="header-actions">
-        <a class="header-shelf" href="/" title="返回书架" id="header-shelf">书架</a>
-        <span id="header-auth"><a href="/login">登录</a></span>
-      </span>
-    </div>
-  </header>
-  <script>
-    (function () {
-      var el = document.getElementById('header-auth');
-      if (!el) return;
-      var token = '';
-      try { token = localStorage.getItem('codexnovel_access_token') || ''; } catch (e) {}
-      el.innerHTML = token ? '<a href="/logout">退出</a>' : '<a href="/login">登录</a>';
-    })();
-  </script>
+  <%- include('partials/site-header', { currentPage: 'library', breadcrumb: novel.title }) %>
 
-  <main>
+  <main id="main-content">
     <div class="reader-chrome">
-      <div class="reader-controls">
-        <button class="reader-btn" id="theme-toggle" type="button">深色</button>
-        <span class="reader-font-label">字号</span>
-        <button class="reader-btn" id="font-decrease" type="button">A-</button>
-        <button class="reader-btn" id="font-increase" type="button">A+</button>
-      </div>
+      <section class="reader-controls" aria-label="阅读设置">
+        <span class="reader-control-label">阅读设置</span>
+        <button class="reader-btn" id="theme-toggle" type="button" aria-pressed="false">深色模式</button>
+        <div class="reader-font-controls" role="group" aria-label="正文字号">
+          <span class="reader-font-label">字号</span>
+          <button class="reader-btn" id="font-decrease" type="button" aria-label="减小正文字号">A−</button>
+          <span class="reader-font-value" id="reader-font-value" aria-live="polite">标准</span>
+          <button class="reader-btn" id="font-increase" type="button" aria-label="增大正文字号">A+</button>
+        </div>
+        <p class="reader-sync" id="reading-sync-status" role="status">阅读进度保存在本机</p>
+      </section>
 
       <nav class="chapter-navigation chapter-navigation-top" aria-label="章节导航">
         <% if (prevChapter) { %>
-          <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>"
-             rel="prev" class="nav-prev" title="<%= prevChapter.title %>">
-            &larr; 上一章
-          </a>
+          <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>" rel="prev" class="nav-prev" title="<%= prevChapter.title %>"><span aria-hidden="true">←</span> 上一章</a>
         <% } else { %>
-          <span class="nav-placeholder"></span>
+          <span class="nav-placeholder" aria-label="没有上一章">已是第一章</span>
         <% } %>
-        <a href="/novel/<%= novel.id %>" class="nav-toc">目录</a>
+        <a href="/novel/<%= novel.id %>" class="nav-toc">返回目录</a>
         <% if (nextChapter) { %>
-          <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>"
-             rel="next" class="nav-next" title="<%= nextChapter.title %>">
-            下一章 &rarr;
-          </a>
+          <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>" rel="next" class="nav-next" title="<%= nextChapter.title %>">下一章 <span aria-hidden="true">→</span></a>
         <% } else { %>
-          <span class="nav-placeholder"></span>
+          <span class="nav-placeholder" aria-label="没有下一章">已是最新章</span>
         <% } %>
       </nav>
     </div>
 
-    <%# 结构贴近常见小说站，便于夸克/UC 阅读模式识别：#content + 第N章 标题 + 连续长段落 %>
-    <div class="content_read" id="wrapper">
+    <article class="content_read" id="wrapper" aria-labelledby="chapter-heading">
       <div class="box_con chapter-content">
-        <div class="bookname chapter-header">
+        <header class="bookname chapter-header">
+          <a class="chapter-book-link" href="/novel/<%= novel.id %>"><%= novel.title %></a>
           <h1 id="chapter-heading"><%= chapter.readerTitle || chapter.title %></h1>
           <% if (chapter.title && chapter.readerTitle && chapter.title !== chapter.readerTitle) { %>
             <p class="chapter-meta"><%= chapter.title %></p>
           <% } %>
-        </div>
-
+        </header>
         <div id="content" class="chapter-body content showtxt entry-content" itemprop="articleBody">
-          <% chapter.paragraphs.forEach(function(p) { %>
-            <p><%= p %></p>
-          <% }) %>
+          <% chapter.paragraphs.forEach(function(p) { %><p><%= p %></p><% }) %>
         </div>
       </div>
-    </div>
+    </article>
 
     <nav class="chapter-navigation chapter-navigation-bottom reader-chrome bottem2" aria-label="章节导航">
       <% if (prevChapter) { %>
-        <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>"
-           rel="prev" class="nav-prev" title="<%= prevChapter.title %>">
-          &larr; 上一章
-        </a>
+        <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>" rel="prev" class="nav-prev" title="<%= prevChapter.title %>"><span aria-hidden="true">←</span> 上一章</a>
       <% } else { %>
-        <span class="nav-placeholder"></span>
+        <span class="nav-placeholder">已是第一章</span>
       <% } %>
-      <a href="/novel/<%= novel.id %>" class="nav-toc">目录</a>
+      <a href="/novel/<%= novel.id %>" class="nav-toc">返回目录</a>
       <% if (nextChapter) { %>
-        <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>"
-           rel="next" class="nav-next" title="<%= nextChapter.title %>">
-          下一章 &rarr;
-        </a>
+        <a href="/novel/<%= novel.id %>/<%= nextChapter.chapter_number %>" rel="next" class="nav-next" title="<%= nextChapter.title %>">下一章 <span aria-hidden="true">→</span></a>
       <% } else { %>
-        <span class="nav-placeholder"></span>
+        <span class="nav-placeholder">已是最新章</span>
       <% } %>
     </nav>
+    <p class="reader-keyboard-hint">键盘左右方向键也可以切换章节</p>
   </main>
 
-  <footer id="site-footer" class="reader-chrome">
-    <p></p>
-  </footer>
+  <footer id="site-footer" class="reader-chrome"><p><a href="/novel/<%= novel.id %>">查看《<%= novel.title %>》完整目录</a></p></footer>
+
+  <!-- 悬浮搜索框 -->
+  <div class="chapter-search-island" id="chapter-search-island">
+    <form class="chapter-search-form" id="chapter-search-form" role="search" autocomplete="off">
+      <label for="chapter-search-input" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">搜索章节</label>
+      <input type="search" id="chapter-search-input" class="chapter-search-input" placeholder="搜索章节" inputmode="search">
+      <button type="button" class="chapter-search-clear" id="chapter-search-clear" aria-label="清除搜索">×</button>
+      <span class="chapter-search-count" id="chapter-search-count" role="status" aria-live="polite"></span>
+    </form>
+  </div>
+
+  <!-- 返回顶部按钮 -->
+  <button class="back-to-top" id="back-to-top" type="button" aria-label="返回顶部" hidden>
+    <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5l-7 7h4v7h6v-7h4z" fill="currentColor"/></svg>
+  </button>
 
   <script>
-    (function() {
+    (function () {
       var html = document.documentElement;
       var themeBtn = document.getElementById('theme-toggle');
       var fontDecBtn = document.getElementById('font-decrease');
       var fontIncBtn = document.getElementById('font-increase');
+      var fontValue = document.getElementById('reader-font-value');
+      var syncStatus = document.getElementById('reading-sync-status');
 
+      function storageGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
+      function storageSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
       function currentTheme() {
-        return html.getAttribute('data-reader-theme') ||
-          (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+        return html.getAttribute('data-reader-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
       }
       function updateThemeLabel() {
-        themeBtn.textContent = currentTheme() === 'dark' ? '浅色' : '深色';
+        var dark = currentTheme() === 'dark';
+        themeBtn.textContent = dark ? '浅色模式' : '深色模式';
+        themeBtn.setAttribute('aria-pressed', String(dark));
       }
-      themeBtn.addEventListener('click', function() {
+      themeBtn.addEventListener('click', function () {
         var next = currentTheme() === 'dark' ? 'light' : 'dark';
         html.setAttribute('data-reader-theme', next);
-        localStorage.setItem('reader-theme', next);
+        storageSet('reader-theme', next);
         updateThemeLabel();
       });
 
       var fontSizes = ['0.95rem', '1.0625rem', '1.2rem', '1.35rem'];
-      var defaultIdx = 1;
+      var fontLabels = ['较小', '标准', '较大', '最大'];
       function getFontIndex() {
-        var idx = fontSizes.indexOf(localStorage.getItem('reader-font-size'));
-        return idx >= 0 ? idx : defaultIdx;
+        var index = fontSizes.indexOf(storageGet('reader-font-size'));
+        return index >= 0 ? index : 1;
       }
-      function applyFont(idx) {
-        html.style.setProperty('--reader-font-size', fontSizes[idx]);
-        localStorage.setItem('reader-font-size', fontSizes[idx]);
+      function applyFont(index) {
+        html.style.setProperty('--reader-font-size', fontSizes[index]);
+        storageSet('reader-font-size', fontSizes[index]);
+        fontValue.textContent = fontLabels[index];
+        fontDecBtn.disabled = index === 0;
+        fontIncBtn.disabled = index === fontSizes.length - 1;
       }
-      fontDecBtn.addEventListener('click', function() {
-        var idx = getFontIndex();
-        if (idx > 0) applyFont(idx - 1);
-      });
-      fontIncBtn.addEventListener('click', function() {
-        var idx = getFontIndex();
-        if (idx < fontSizes.length - 1) applyFont(idx + 1);
-      });
-
+      fontDecBtn.addEventListener('click', function () { applyFont(Math.max(0, getFontIndex() - 1)); });
+      fontIncBtn.addEventListener('click', function () { applyFont(Math.min(fontSizes.length - 1, getFontIndex() + 1)); });
       updateThemeLabel();
+      applyFont(getFontIndex());
 
       var novelId = <%= novel.id %>;
       var chapterNumber = <%= chapter.chapter_number %>;
       var progressKey = 'reading-progress:' + novelId + ':' + chapterNumber;
       var progressMetaKey = 'reading-progress-meta:' + novelId;
       var apiTokenKey = 'codexnovel_access_token';
+      function getApiToken() { return storageGet(apiTokenKey) || ''; }
+      function setSyncStatus(text, state) {
+        syncStatus.textContent = text;
+        syncStatus.setAttribute('data-state', state || 'local');
+      }
+      if (getApiToken()) setSyncStatus('阅读进度将同步到账号', 'sync');
 
       function currentOffsetRatio() {
-        var max = document.documentElement.scrollHeight - window.innerHeight;
-        if (max <= 0) return 0;
-        return Math.min(1, Math.max(0, window.scrollY / max));
+        // 使用 visualViewport API 避免移动端键盘影响
+        var viewport = window.visualViewport || window;
+        var viewportHeight = viewport.height || window.innerHeight;
+        var max = document.documentElement.scrollHeight - viewportHeight;
+        return max <= 0 ? 0 : Math.min(1, Math.max(0, window.scrollY / max));
       }
-
       function applyOffsetRatio(ratio) {
-        var r = parseFloat(ratio);
-        if (!(r > 0)) return;
-        requestAnimationFrame(function() {
+        var value = parseFloat(ratio);
+        if (!(value > 0)) return;
+        requestAnimationFrame(function () {
           var max = document.documentElement.scrollHeight - window.innerHeight;
-          if (max > 0) window.scrollTo(0, max * r);
+          if (max > 0) window.scrollTo(0, max * value);
         });
       }
-
       function saveLocalProgress(ratio) {
-        localStorage.setItem(progressKey, String(ratio));
-        try {
-          localStorage.setItem(progressMetaKey, JSON.stringify({
-            chapterNumber: chapterNumber,
-            offsetRatio: ratio,
-            updatedAt: new Date().toISOString()
-          }));
-        } catch (e) { /* ignore quota */ }
+        storageSet(progressKey, String(ratio));
+        storageSet(progressMetaKey, JSON.stringify({ chapterNumber: chapterNumber, offsetRatio: ratio, updatedAt: new Date().toISOString() }));
       }
-
-      function getApiToken() {
-        try { return localStorage.getItem(apiTokenKey) || ''; } catch (e) { return ''; }
-      }
-
       function syncProgressToCloud(ratio) {
         var token = getApiToken();
         if (!token) return;
-        var body = {
-          novelId: novelId,
-          chapterNumber: chapterNumber,
-          offsetRatio: ratio,
-          updatedAt: new Date().toISOString(),
-          deviceName: 'web'
-        };
         fetch('/api/v1/me/progress', {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
-            'Accept': 'application/json'
-          },
-          body: JSON.stringify(body),
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
+          body: JSON.stringify({ novelId: novelId, chapterNumber: chapterNumber, offsetRatio: ratio, updatedAt: new Date().toISOString(), deviceName: 'web' }),
           credentials: 'same-origin'
-        }).catch(function() { /* 离线静默 */ });
+        }).then(function (response) {
+          setSyncStatus(response.ok ? '阅读进度已同步' : '同步失败，进度仍保存在本机', response.ok ? 'synced' : 'error');
+        }).catch(function () { setSyncStatus('当前离线，进度已保存在本机', 'error'); });
       }
 
-      // 1) 先用本地进度
-      var saved = parseFloat(localStorage.getItem(progressKey));
-      applyOffsetRatio(saved);
-
-      // 2) 若有 App/Web JWT，拉云端进度并 LWW（同书维度）
+      applyOffsetRatio(parseFloat(storageGet(progressKey)));
       (function pullCloudProgress() {
         var token = getApiToken();
         if (!token) return;
         fetch('/api/v1/me/progress/' + novelId, {
-          headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
-          credentials: 'same-origin'
-        }).then(function(res) {
-          if (res.status === 404) return null;
-          if (!res.ok) return null;
-          return res.json();
-        }).then(function(data) {
+          headers: { 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' }, credentials: 'same-origin'
+        }).then(function (response) {
+          if (response.status === 404 || !response.ok) return null;
+          return response.json();
+        }).then(function (data) {
           if (!data || data.chapterNumber == null) return;
           var localMeta = null;
-          try { localMeta = JSON.parse(localStorage.getItem(progressMetaKey) || 'null'); } catch (e) { localMeta = null; }
+          try { localMeta = JSON.parse(storageGet(progressMetaKey) || 'null'); } catch (e) {}
           var localTs = localMeta && localMeta.updatedAt ? Date.parse(localMeta.updatedAt) : 0;
           var cloudTs = data.updatedAt ? Date.parse(data.updatedAt) : 0;
-          if (!cloudTs) return;
-          if (localTs && localTs >= cloudTs) return;
-          // 云端更新：若同一章则滚动；若不同章仅更新 meta（不强制跳章，避免打断当前阅读）
-          try {
-            localStorage.setItem(progressMetaKey, JSON.stringify({
-              chapterNumber: data.chapterNumber,
-              offsetRatio: data.offsetRatio,
-              updatedAt: data.updatedAt
-            }));
-          } catch (e) { /* ignore */ }
+          if (!cloudTs || (localTs && localTs >= cloudTs)) return;
+          storageSet(progressMetaKey, JSON.stringify({ chapterNumber: data.chapterNumber, offsetRatio: data.offsetRatio, updatedAt: data.updatedAt }));
           if (Number(data.chapterNumber) === chapterNumber) {
             applyOffsetRatio(data.offsetRatio);
-            localStorage.setItem(progressKey, String(data.offsetRatio || 0));
+            storageSet(progressKey, String(data.offsetRatio || 0));
+            setSyncStatus('已恢复云端阅读位置', 'synced');
           }
-        }).catch(function() { /* ignore */ });
+        }).catch(function () { setSyncStatus('云端进度暂不可用，使用本机记录', 'error'); });
       })();
 
       var saveTimer = null;
-      window.addEventListener('scroll', function() {
-        if (saveTimer) clearTimeout(saveTimer);
-        saveTimer = setTimeout(function() {
+      var isKeyboardOpen = false;
+
+      // 监听视口变化（键盘弹起/收起）
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', function () {
+          // 键盘弹起/收起时暂停进度保存
+          isKeyboardOpen = true;
+          clearTimeout(saveTimer);
+          setTimeout(function () { isKeyboardOpen = false; }, 300);
+        });
+      }
+
+      window.addEventListener('scroll', function () {
+        // 键盘弹起时不保存进度
+        if (isKeyboardOpen) return;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(function () {
           var ratio = currentOffsetRatio();
           saveLocalProgress(ratio);
           syncProgressToCloud(ratio);
-        }, 400);
+        }, 500);
       }, { passive: true });
 
-      document.addEventListener('keydown', function(e) {
-        var tag = e.target.tagName;
-        if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-        if (e.key === 'ArrowLeft') {
+      document.addEventListener('keydown', function (event) {
+        var tag = event.target.tagName;
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || event.target.isContentEditable) return;
+        if (event.key === 'ArrowLeft') {
           var prev = document.querySelector('a[rel="prev"]');
           if (prev) window.location.href = prev.href;
-        } else if (e.key === 'ArrowRight') {
+        } else if (event.key === 'ArrowRight') {
           var next = document.querySelector('a[rel="next"]');
           if (next) window.location.href = next.href;
         }
       });
 
-      // 书架：触控按下即跳转，减少大页面上的 click 延迟
-      var shelf = document.getElementById('header-shelf');
-      if (shelf) {
-        shelf.addEventListener('pointerdown', function(e) {
-          if (e.pointerType === 'mouse' && e.button !== 0) return;
-          if (e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-          var href = shelf.href;
-          if (!href) return;
-          e.preventDefault();
-          window.location.assign(href);
-        }, { passive: false });
+      // 悬浮搜索框功能
+      var searchIsland = document.getElementById('chapter-search-island');
+      var searchInput = document.getElementById('chapter-search-input');
+      var searchClear = document.getElementById('chapter-search-clear');
+      var searchCount = document.getElementById('chapter-search-count');
+      var backToTopBtn = document.getElementById('back-to-top');
+
+      // 搜索框滚动显示/隐藏
+      var searchShown = false;
+      var searchScrollRaf = 0;
+      function updateSearchIsland() {
+        searchScrollRaf = 0;
+        var shouldShow = window.scrollY > 300;
+        if (shouldShow === searchShown) return;
+        searchShown = shouldShow;
+        searchIsland.classList.toggle('is-visible', shouldShow);
       }
+
+      // 搜索框聚焦/失焦样式
+      searchInput.addEventListener('focus', function () {
+        searchIsland.classList.add('is-focused');
+      });
+      searchInput.addEventListener('blur', function () {
+        searchIsland.classList.remove('is-focused');
+      });
+
+      // 搜索功能 - 跳转到目录并设置过滤
+      var searchForm = document.getElementById('chapter-search-form');
+      searchForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        var query = searchInput.value.trim();
+        if (query) {
+          // 保存搜索词到 sessionStorage
+          try {
+            sessionStorage.setItem('chapter-search-query', query);
+          } catch (e) {}
+          // 跳转到目录页
+          window.location.href = '/novel/<%= novel.id %>';
+        }
+      });
+
+      searchInput.addEventListener('input', function () {
+        searchCount.textContent = searchInput.value.trim() ? '按回车搜索' : '';
+      });
+
+      searchClear.addEventListener('click', function () {
+        searchInput.value = '';
+        searchCount.textContent = '';
+        searchInput.focus();
+      });
+
+      // 返回顶部按钮
+      var backShown = false;
+      var backScrollRaf = 0;
+      function updateBackButton() {
+        backScrollRaf = 0;
+        var shouldShow = window.scrollY > 500;
+        if (shouldShow === backShown) return;
+        backShown = shouldShow;
+        backToTopBtn.hidden = !shouldShow;
+        backToTopBtn.classList.toggle('is-visible', shouldShow);
+      }
+
+      function handleScroll() {
+        if (!searchScrollRaf) searchScrollRaf = requestAnimationFrame(updateSearchIsland);
+        if (!backScrollRaf) backScrollRaf = requestAnimationFrame(updateBackButton);
+      }
+
+      window.addEventListener('scroll', handleScroll, { passive: true });
+
+      backToTopBtn.addEventListener('click', function () {
+        var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
+      });
     })();
   </script>
 </body>
