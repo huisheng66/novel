@@ -199,18 +199,21 @@
         html.style.fontFamily = '"KaiTi", "Kaiti SC", STKaiti, "STKaiti", serif';
       }
 
-      // 字号设置 - 滑块
+      // 字号设置 - 滑块（只影响正文）
       var fontSizeSlider = document.getElementById('font-size-slider');
       var fontSizeLabel = document.getElementById('font-size-label');
+      var chapterBody = document.querySelector('.chapter-body');
       var savedFontSize = storageGet('reader-font-size-px');
-      if (savedFontSize) {
+      if (savedFontSize && chapterBody) {
         fontSizeSlider.value = savedFontSize;
-        html.style.fontSize = savedFontSize + 'px';
+        chapterBody.style.fontSize = savedFontSize + 'px';
         fontSizeLabel.textContent = savedFontSize + 'px';
       }
       fontSizeSlider.addEventListener('input', function () {
         var size = this.value;
-        html.style.fontSize = size + 'px';
+        if (chapterBody) {
+          chapterBody.style.fontSize = size + 'px';
+        }
         fontSizeLabel.textContent = size + 'px';
         storageSet('reader-font-size-px', size);
       });
@@ -235,18 +238,20 @@
         html.setAttribute('data-reader-bg', currentBg);
       }
 
-      // 行距设置 - 滑块
+      // 行距设置 - 滑块（只影响正文）
       var lineHeightSlider = document.getElementById('line-height-slider');
       var lineHeightLabel = document.getElementById('line-height-label');
       var savedLineHeight = storageGet('reader-line-height');
-      if (savedLineHeight) {
+      if (savedLineHeight && chapterBody) {
         lineHeightSlider.value = savedLineHeight;
-        html.style.lineHeight = savedLineHeight;
+        chapterBody.style.lineHeight = savedLineHeight;
         lineHeightLabel.textContent = savedLineHeight;
       }
       lineHeightSlider.addEventListener('input', function () {
         var lh = this.value;
-        html.style.lineHeight = lh;
+        if (chapterBody) {
+          chapterBody.style.lineHeight = lh;
+        }
         lineHeightLabel.textContent = lh;
         storageSet('reader-line-height', lh);
       });
