@@ -327,9 +327,8 @@
           if (Number(data.chapterNumber) === chapterNumber) {
             applyOffsetRatio(data.offsetRatio);
             storageSet(progressKey, String(data.offsetRatio || 0));
-            setSyncStatus('已恢复云端阅读位置', 'synced');
           }
-        }).catch(function () { setSyncStatus('云端进度暂不可用，使用本机记录', 'error'); });
+        }).catch(function () {});
       })();
 
       var saveTimer = null;
