@@ -12,11 +12,13 @@ const { findUserById, publicUser } = require('../../lib/api/users');
 
 /** Web JWT cookie：与 App 共用 users + access JWT */
 const WEB_JWT_COOKIE = 'cn_jwt';
+// Cookie 留存时间：6个月（180天）
+const WEB_JWT_COOKIE_MAX_AGE_MS = 180 * 24 * 60 * 60 * 1000;
 const WEB_JWT_COOKIE_OPTS = {
   httpOnly: true,
   sameSite: 'lax',
   path: '/',
-  maxAge: 30 * 24 * 60 * 60 * 1000
+  maxAge: WEB_JWT_COOKIE_MAX_AGE_MS
 };
 
 // Token 鉴权内存缓存：过短会导致几乎每请求打 DB
@@ -86,11 +88,12 @@ function getSessionId(req) {
   return crypto.randomBytes(12).toString('hex');
 }
 
-const COOKIE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+// Access Token 和访客 Cookie 留存时间：6个月（180天）
+const COOKIE_HALF_YEAR_MS = 180 * 24 * 60 * 60 * 1000;
 const ACCESS_COOKIE_OPTS = {
   httpOnly: true,
   sameSite: 'lax',
-  maxAge: COOKIE_YEAR_MS,
+  maxAge: COOKIE_HALF_YEAR_MS,
   path: '/'
 };
 

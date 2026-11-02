@@ -5,7 +5,8 @@ const { pool } = require('../../../db');
 const logger = require('../../../lib/logger');
 
 const SESSION_COOKIE = 'admin_session';
-const SESSION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+// 后台会话留存时间：30天
+const SESSION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 const DEFAULT_ADMIN_PASSWORD = 'admin123';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || DEFAULT_ADMIN_PASSWORD;
 const SESSION_SECRET = process.env.ADMIN_SESSION_SECRET || ADMIN_PASSWORD;
