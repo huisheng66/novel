@@ -19,17 +19,29 @@
 /* 背景色主题 */
 [data-reader-bg="default"] {
   --bg: #f7f6f2;
+  --surface: #ffffff;
+  --surface-soft: #f1efea;
   --text: #25231f;
+  --muted: #68635c;
+  --border: #ddd9d1;
 }
 
 [data-reader-bg="warm"] {
   --bg: #f5f1e8;
+  --surface: #ffffff;
+  --surface-soft: #f1efea;
   --text: #2a2520;
+  --muted: #68635c;
+  --border: #ddd9d1;
 }
 
 [data-reader-bg="cool"] {
   --bg: #e8f2f5;
+  --surface: #ffffff;
+  --surface-soft: #f1efea;
   --text: #1e2b30;
+  --muted: #68635c;
+  --border: #ddd9d1;
 }
 
 [data-reader-bg="dark"] {
