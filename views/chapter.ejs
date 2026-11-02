@@ -512,34 +512,6 @@
         });
       });
 
-      // 背景色设置
-      var bgBtns = document.querySelectorAll('#bg-color-options .reader-setting-btn');
-      var currentBg = storageGet('reader-bg-color') || 'default';
-      bgBtns.forEach(function (btn) {
-        if (btn.getAttribute('data-bg') === currentBg) {
-          btn.classList.add('is-active');
-        }
-        btn.addEventListener('click', function () {
-          var bg = this.getAttribute('data-bg');
-          bgBtns.forEach(function (b) { b.classList.remove('is-active'); });
-          this.classList.add('is-active');
-          html.setAttribute('data-reader-bg', bg);
-          storageSet('reader-bg-color', bg);
-          // 深色背景同步暗色主题
-          if (bg === 'dark') {
-            html.setAttribute('data-reader-theme', 'dark');
-            storageSet('reader-theme', 'dark');
-          } else if (currentTheme() === 'dark' && bg !== 'dark') {
-            html.setAttribute('data-reader-theme', 'light');
-            storageSet('reader-theme', 'light');
-          }
-        });
-      });
-      // 应用已保存背景色
-      if (currentBg) {
-        html.setAttribute('data-reader-bg', currentBg);
-      }
-
       // 行距设置
       var lhBtns = document.querySelectorAll('#line-height-options .reader-setting-btn');
       var currentLh = storageGet('reader-line-height') || '1.7';
