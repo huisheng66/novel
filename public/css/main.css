@@ -16,6 +16,31 @@
   --radius: 14px;
 }
 
+/* 背景色主题 */
+[data-reader-bg="default"] {
+  --bg: #f7f6f2;
+  --text: #25231f;
+}
+
+[data-reader-bg="warm"] {
+  --bg: #f5f1e8;
+  --text: #2a2520;
+}
+
+[data-reader-bg="cool"] {
+  --bg: #e8f2f5;
+  --text: #1e2b30;
+}
+
+[data-reader-bg="dark"] {
+  --bg: #1a1a1a;
+  --surface: #252525;
+  --surface-soft: #2f2f2f;
+  --text: #e0e0e0;
+  --muted: #a0a0a0;
+  --border: #333333;
+}
+
 /* ===== 极简阅读 ===== */
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -56,13 +81,25 @@ a:hover { opacity: 0.7; }
   font-size: 0.8125rem;
 }
 .header-auth a,
-.header-actions a {
+.header-actions a,
+.reader-settings-trigger {
   color: var(--muted);
+  background: transparent;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  padding: 0;
 }
 .header-auth a:hover,
-.header-actions a:hover {
+.header-actions a:hover,
+.reader-settings-trigger:hover {
   color: var(--accent);
   opacity: 1;
+}
+.reader-settings-trigger:focus,
+.reader-settings-trigger:focus-visible {
+  outline: none;
+  caret-color: transparent;
 }
 .header-crumbs { min-width: 0; }
 .header-shelf {

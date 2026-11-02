@@ -14,6 +14,7 @@
     <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
   <% } %>
   <link rel="stylesheet" href="/css/main.css?v=20261031a">
+  <link rel="stylesheet" href="/css/reader-settings-modal.css?v=20261102a">
   <script src="/js/site.js?v=20261031a" defer></script>
   <script>
     (function () {
@@ -27,22 +28,10 @@
   </script>
 </head>
 <body>
-  <%- include('partials/site-header', { currentPage: 'library', breadcrumb: novel.title }) %>
+  <%- include('partials/site-header', { currentPage: 'library', breadcrumb: novel.title, isReaderPage: true }) %>
 
   <main id="main-content">
     <div class="reader-chrome">
-      <section class="reader-controls" aria-label="阅读设置">
-        <span class="reader-control-label">阅读设置</span>
-        <button class="reader-btn" id="theme-toggle" type="button" aria-pressed="false">深色模式</button>
-        <div class="reader-font-controls" role="group" aria-label="正文字号">
-          <span class="reader-font-label">字号</span>
-          <button class="reader-btn" id="font-decrease" type="button" aria-label="减小正文字号">A−</button>
-          <span class="reader-font-value" id="reader-font-value" aria-live="polite">标准</span>
-          <button class="reader-btn" id="font-increase" type="button" aria-label="增大正文字号">A+</button>
-        </div>
-        <p class="reader-sync" id="reading-sync-status" role="status">阅读进度保存在本机</p>
-      </section>
-
       <nav class="chapter-navigation chapter-navigation-top" aria-label="章节导航">
         <% if (prevChapter) { %>
           <a href="/novel/<%= novel.id %>/<%= prevChapter.chapter_number %>" rel="prev" class="nav-prev" title="<%= prevChapter.title %>"><span aria-hidden="true">←</span> 上一章</a>
@@ -61,11 +50,7 @@
     <article class="content_read" id="wrapper" aria-labelledby="chapter-heading">
       <div class="box_con chapter-content">
         <header class="bookname chapter-header">
-          <a class="chapter-book-link" href="/novel/<%= novel.id %>"><%= novel.title %></a>
           <h1 id="chapter-heading"><%= chapter.readerTitle || chapter.title %></h1>
-          <% if (chapter.title && chapter.readerTitle && chapter.title !== chapter.readerTitle) { %>
-            <p class="chapter-meta"><%= chapter.title %></p>
-          <% } %>
         </header>
         <div id="content" class="chapter-body content showtxt entry-content" itemprop="articleBody">
           <% chapter.paragraphs.forEach(function(p) { %><p><%= p %></p><% }) %>
@@ -105,6 +90,54 @@
   <button class="back-to-top" id="back-to-top" type="button" aria-label="返回顶部" hidden>
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5l-7 7h4v7h6v-7h4z" fill="currentColor"/></svg>
   </button>
+
+  <!-- 阅读设置模态框 -->
+  <div class="reader-settings-overlay" id="reader-settings-overlay"></div>
+  <div class="reader-settings-modal" id="reader-settings-modal">
+    <div class="reader-settings-header">
+      <h2 class="reader-settings-title">阅读设置</h2>
+      <button class="reader-settings-close" id="reader-settings-close" type="button" aria-label="关闭设置">×</button>
+    </div>
+    <div class="reader-settings-body">
+      <div class="reader-setting-group">
+        <div class="reader-setting-label">字体</div>
+        <div class="reader-setting-options" id="font-family-options">
+          <button class="reader-setting-btn" data-font="serif" type="button">宋体</button>
+          <button class="reader-setting-btn" data-font="sans" type="button">黑体</button>
+          <button class="reader-setting-btn" data-font="kai" type="button">楷体</button>
+        </div>
+      </div>
+
+      <div class="reader-setting-group">
+        <div class="reader-setting-label">字号</div>
+        <div class="reader-setting-options" id="font-size-options">
+          <button class="reader-setting-btn font-size-option" data-size="0.95rem" type="button">较小</button>
+          <button class="reader-setting-btn font-size-option" data-size="1.0625rem" type="button">标准</button>
+          <button class="reader-setting-btn font-size-option" data-size="1.2rem" type="button">较大</button>
+          <button class="reader-setting-btn font-size-option" data-size="1.35rem" type="button">最大</button>
+        </div>
+      </div>
+
+      <div class="reader-setting-group">
+        <div class="reader-setting-label">背景色</div>
+        <div class="reader-setting-options" id="bg-color-options">
+          <button class="reader-setting-btn bg-color-option" data-bg="default" type="button" aria-label="默认"></button>
+          <button class="reader-setting-btn bg-color-option" data-bg="warm" type="button" aria-label="护眼"></button>
+          <button class="reader-setting-btn bg-color-option" data-bg="cool" type="button" aria-label="清凉"></button>
+          <button class="reader-setting-btn bg-color-option" data-bg="dark" type="button" aria-label="深色"></button>
+        </div>
+      </div>
+
+      <div class="reader-setting-group">
+        <div class="reader-setting-label">行距</div>
+        <div class="reader-setting-options" id="line-height-options">
+          <button class="reader-setting-btn line-height-option" data-lh="1.5" type="button">紧凑</button>
+          <button class="reader-setting-btn line-height-option" data-lh="1.7" type="button">标准</button>
+          <button class="reader-setting-btn line-height-option" data-lh="2.0" type="button">宽松</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script>
     (function () {
@@ -329,6 +362,124 @@
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
       });
+
+      // 阅读设置模态框
+      var settingsTrigger = document.getElementById('reader-settings-trigger');
+      var settingsModal = document.getElementById('reader-settings-modal');
+      var settingsOverlay = document.getElementById('reader-settings-overlay');
+      var settingsClose = document.getElementById('reader-settings-close');
+
+      function openSettings() {
+        settingsOverlay.classList.add('is-visible');
+        settingsModal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeSettings() {
+        settingsOverlay.classList.remove('is-visible');
+        settingsModal.classList.remove('is-open');
+        document.body.style.overflow = '';
+      }
+
+      if (settingsTrigger) {
+        settingsTrigger.addEventListener('click', openSettings);
+      }
+      settingsClose.addEventListener('click', closeSettings);
+      settingsOverlay.addEventListener('click', closeSettings);
+
+      // 字体设置
+      var fontBtns = document.querySelectorAll('#font-family-options .reader-setting-btn');
+      var currentFont = storageGet('reader-font-family') || 'serif';
+      fontBtns.forEach(function (btn) {
+        if (btn.getAttribute('data-font') === currentFont) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var font = this.getAttribute('data-font');
+          fontBtns.forEach(function (b) { b.classList.remove('is-active'); });
+          this.classList.add('is-active');
+          if (font === 'serif') {
+            html.style.fontFamily = '"Noto Serif SC", "Source Han Serif SC", Georgia, "Songti SC", serif';
+          } else if (font === 'sans') {
+            html.style.fontFamily = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+          } else if (font === 'kai') {
+            html.style.fontFamily = '"KaiTi", "Kaiti SC", STKaiti, "STKaiti", serif';
+          }
+          storageSet('reader-font-family', font);
+        });
+      });
+      // 应用已保存字体
+      if (currentFont === 'sans') {
+        html.style.fontFamily = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+      } else if (currentFont === 'kai') {
+        html.style.fontFamily = '"KaiTi", "Kaiti SC", STKaiti, "STKaiti", serif';
+      }
+
+      // 字号设置（复用已有逻辑）
+      var sizeBtns = document.querySelectorAll('#font-size-options .reader-setting-btn');
+      var currentSizeIndex = getFontIndex();
+      sizeBtns.forEach(function (btn, index) {
+        if (index === currentSizeIndex) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var size = this.getAttribute('data-size');
+          var index = fontSizes.indexOf(size);
+          if (index >= 0) {
+            applyFont(index);
+            sizeBtns.forEach(function (b) { b.classList.remove('is-active'); });
+            this.classList.add('is-active');
+          }
+        });
+      });
+
+      // 背景色设置
+      var bgBtns = document.querySelectorAll('#bg-color-options .reader-setting-btn');
+      var currentBg = storageGet('reader-bg-color') || 'default';
+      bgBtns.forEach(function (btn) {
+        if (btn.getAttribute('data-bg') === currentBg) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var bg = this.getAttribute('data-bg');
+          bgBtns.forEach(function (b) { b.classList.remove('is-active'); });
+          this.classList.add('is-active');
+          html.setAttribute('data-reader-bg', bg);
+          storageSet('reader-bg-color', bg);
+          // 深色背景同步暗色主题
+          if (bg === 'dark') {
+            html.setAttribute('data-reader-theme', 'dark');
+            storageSet('reader-theme', 'dark');
+          } else if (currentTheme() === 'dark' && bg !== 'dark') {
+            html.setAttribute('data-reader-theme', 'light');
+            storageSet('reader-theme', 'light');
+          }
+        });
+      });
+      // 应用已保存背景色
+      if (currentBg) {
+        html.setAttribute('data-reader-bg', currentBg);
+      }
+
+      // 行距设置
+      var lhBtns = document.querySelectorAll('#line-height-options .reader-setting-btn');
+      var currentLh = storageGet('reader-line-height') || '1.7';
+      lhBtns.forEach(function (btn) {
+        if (btn.getAttribute('data-lh') === currentLh) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var lh = this.getAttribute('data-lh');
+          lhBtns.forEach(function (b) { b.classList.remove('is-active'); });
+          this.classList.add('is-active');
+          html.style.lineHeight = lh;
+          storageSet('reader-line-height', lh);
+        });
+      });
+      // 应用已保存行距
+      if (currentLh) {
+        html.style.lineHeight = currentLh;
+      }
     })();
   </script>
 </body>

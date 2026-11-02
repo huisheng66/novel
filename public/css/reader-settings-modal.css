@@ -1,0 +1,199 @@
+/* 阅读设置悬浮模态框 */
+
+.reader-settings-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  width: min(85vw, 520px);
+  aspect-ratio: 4 / 3;
+  background: var(--surface, #ffffff);
+  border-radius: 16px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+  padding: 1.75rem;
+  display: none;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.reader-settings-modal.is-open {
+  display: flex;
+}
+
+.reader-settings-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+}
+
+.reader-settings-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.reader-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border, #ddd9d1);
+}
+
+.reader-settings-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text, #25231f);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.reader-settings-close {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--muted, #68635c);
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.2s ease;
+}
+
+.reader-settings-close:hover {
+  background: var(--surface-soft, #f1efea);
+}
+
+.reader-settings-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.reader-setting-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reader-setting-label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text, #25231f);
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.reader-setting-options {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.reader-setting-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border, #ddd9d1);
+  border-radius: 8px;
+  background: var(--surface, #ffffff);
+  color: var(--text, #25231f);
+  font-size: 0.9rem;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.reader-setting-btn:hover {
+  border-color: var(--accent, #96502f);
+  color: var(--accent, #96502f);
+}
+
+.reader-setting-btn.is-active {
+  background: var(--accent, #96502f);
+  border-color: var(--accent, #96502f);
+  color: #ffffff;
+}
+
+/* 字号选项 */
+.font-size-option {
+  min-width: 3.5rem;
+}
+
+/* 背景色选项 - 色块 */
+.bg-color-option {
+  width: 3.5rem;
+  height: 3.5rem;
+  padding: 0;
+  border-radius: 50%;
+  position: relative;
+}
+
+.bg-color-option::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.bg-color-option.is-active::after {
+  border-color: var(--accent, #96502f);
+}
+
+.bg-color-option[data-bg="default"] {
+  background: #f7f6f2;
+  color: #25231f;
+}
+
+.bg-color-option[data-bg="warm"] {
+  background: #f5f1e8;
+  color: #2a2520;
+}
+
+.bg-color-option[data-bg="cool"] {
+  background: #e8f2f5;
+  color: #1e2b30;
+}
+
+.bg-color-option[data-bg="dark"] {
+  background: #1a1a1a;
+  color: #e0e0e0;
+}
+
+/* 行距选项 */
+.line-height-option {
+  min-width: 4rem;
+}
+
+/* 去除焦点效果 */
+.reader-settings-modal *:focus,
+.reader-settings-modal *:focus-visible {
+  outline: none;
+  caret-color: transparent;
+}
+
+.reader-settings-trigger:focus,
+.reader-settings-trigger:focus-visible {
+  outline: none;
+  caret-color: transparent;
+}
+
+/* 暗色模式适配 */
+[data-reader-theme="dark"] .reader-settings-modal {
+  --surface: #1a1a1a;
+  --surface-soft: #252525;
+  --text: #e0e0e0;
+  --muted: #a0a0a0;
+  --border: #333333;
+}
