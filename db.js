@@ -2,6 +2,9 @@ const mysql = require('mysql2/promise');
 const { parsePositiveInt } = require('./lib/util');
 const logger = require('./lib/logger');
 
+// 数据库连接池配置
+// 连接数建议：CPU 核心数 * 2 + 磁盘数，默认 20
+// 生产环境可通过 DB_CONNECTION_LIMIT 环境变量调整（建议 50-100）
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
@@ -10,7 +13,16 @@ const pool = mysql.createPool({
   waitForConnections: true,
   connectionLimit: parsePositiveInt(process.env.DB_CONNECTION_LIMIT, 20),
   queueLimit: parsePositiveInt(process.env.DB_QUEUE_LIMIT, 0),
-  charset: 'utf8mb4'
+  charset: 'utf8mb4',
+  // 性能优化配置
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 10000, // 10秒后开始 Keep-Alive
+  maxIdle: 10, // 最大空闲连接数（mysql2 >= 3.0）
+  idleTimeout: 60000, // 空闲连接超时 60秒
+  // 快速失败：连接超时设置
+  connectTimeout: 10000, // 连接超时 10秒
+  // 预处理语句缓存
+  namedPlaceholders: true
 });
 
 async function columnExists(conn, tableName, columnName) {

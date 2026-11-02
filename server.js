@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const path = require('path');
+const compression = require('compression');
 const { initDB } = require('./db');
 const indexRoutes = require('./routes/index');
 const adminRoutes = require('./routes/admin');
@@ -11,6 +12,9 @@ const analytics = require('./lib/analytics');
 const redis = require('./lib/redis');
 const rateLimitStore = require('./lib/rateLimitStore');
 const logger = require('./lib/logger');
+const performanceMonitor = require('./lib/performanceMonitor');
+const dbOptimizer = require('./lib/dbOptimizer');
+const cacheWarmer = require('./lib/cacheWarmer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -22,6 +26,24 @@ app.set('trust proxy', process.env.TRUST_PROXY === 'true' ? 1 : false);
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+// 性能优化：启用 EJS 编译缓存（生产环境）
+if (process.env.NODE_ENV === 'production') {
+  app.set('view cache', true);
+}
+
+// 响应压缩（Gzip/Brotli）
+app.use(compression({
+  // 只压缩大于 1KB 的响应
+  threshold: 1024,
+  // 压缩级别：6 是性能和压缩率的平衡点
+  level: 6,
+  // 过滤器：只压缩可压缩的 MIME 类型
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) return false;
+    return compression.filter(req, res);
+  }
+}));
+
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0,
   etag: true
@@ -32,14 +54,28 @@ app.use(express.json({ limit: '1mb' }));
 
 app.use(logger.requestLogger);
 
+// 性能监控中间件
+app.use(performanceMonitor.performanceMiddleware);
+
 app.get('/healthz', (req, res) => {
-  res.status(200).json({
+  const healthData = {
     status: 'ok',
     queue: pageViewQueue.stats(),
     cache: { size: cache.size() },
     redis: redis.getStatus(),
     rateLimit: rateLimitStore.stats()
-  });
+  };
+
+  // 可选：性能统计（避免模块加载问题）
+  try {
+    healthData.database = dbOptimizer.getPoolStatus();
+    healthData.memory = performanceMonitor.getMemoryStats();
+    healthData.performance = performanceMonitor.getStats().global;
+  } catch (err) {
+    // 优雅降级：不影响健康检查
+  }
+
+  res.status(200).json(healthData);
 });
 
 app.get('/metrics', (req, res) => {
@@ -89,18 +125,52 @@ initDB().then(async () => {
   const server = app.listen(PORT, '0.0.0.0', () => {
     logger.info('Server started', { port: PORT, host: '0.0.0.0' });
   });
+
+  // 性能优化：TCP Keep-Alive 和连接超时
+  server.keepAliveTimeout = 65000; // 65秒，略长于常见负载均衡器的60秒超时
+  server.headersTimeout = 66000;   // 稍长于 keepAliveTimeout，避免竞态
+
   analytics.start();
+
+  // 启动性能监控（每分钟输出一次）
+  if (process.env.NODE_ENV === 'production') {
+    performanceMonitor.startMonitoring(60000);
+  }
+
+  // 数据库优化：确保索引存在
+  dbOptimizer.ensureIndexes().catch(err => {
+    logger.error('Index optimization failed', { err });
+  });
+
+  // 缓存预热（异步，不阻塞启动）
+  if (process.env.ENABLE_CACHE_WARMUP !== 'false') {
+    cacheWarmer.warmupAll().catch(err => {
+      logger.error('Cache warmup failed', { err });
+    });
+  }
+
+  // 定期清理过期数据（每小时）
+  const cleanupInterval = setInterval(() => {
+    dbOptimizer.cleanupExpiredData().catch(err => {
+      logger.error('Expired data cleanup failed', { err });
+    });
+  }, 60 * 60 * 1000);
 
   let shuttingDown = false;
   async function shutdown(signal) {
     if (shuttingDown) return;
     shuttingDown = true;
     logger.info('Shutdown signal received, flushing queue', { signal });
+
+    performanceMonitor.stopMonitoring();
     analytics.stop();
+    clearInterval(cleanupInterval);
+
     const forceExit = setTimeout(() => {
       logger.error('Forced shutdown after 5s timeout');
       process.exit(0);
     }, 5000).unref();
+
     server.close(async () => {
       try {
         await pageViewQueue.flushAll();
