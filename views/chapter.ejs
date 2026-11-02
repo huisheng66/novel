@@ -76,16 +76,6 @@
 
   <footer id="site-footer" class="reader-chrome"><p><a href="/novel/<%= novel.id %>">查看《<%= novel.title %>》完整目录</a></p></footer>
 
-  <!-- 悬浮搜索框 -->
-  <div class="chapter-search-island" id="chapter-search-island">
-    <form class="chapter-search-form" id="chapter-search-form" role="search" autocomplete="off">
-      <label for="chapter-search-input" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">搜索章节</label>
-      <input type="search" id="chapter-search-input" class="chapter-search-input" placeholder="搜索章节" inputmode="search">
-      <button type="button" class="chapter-search-clear" id="chapter-search-clear" aria-label="清除搜索">×</button>
-      <span class="chapter-search-count" id="chapter-search-count" role="status" aria-live="polite"></span>
-    </form>
-  </div>
-
   <!-- 返回顶部按钮 -->
   <button class="back-to-top" id="back-to-top" type="button" aria-label="返回顶部" hidden>
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5l-7 7h4v7h6v-7h4z" fill="currentColor"/></svg>
@@ -353,58 +343,8 @@
         }
       });
 
-      // 悬浮搜索框功能
-      var searchIsland = document.getElementById('chapter-search-island');
-      var searchInput = document.getElementById('chapter-search-input');
-      var searchClear = document.getElementById('chapter-search-clear');
-      var searchCount = document.getElementById('chapter-search-count');
-      var backToTopBtn = document.getElementById('back-to-top');
-
-      // 搜索框滚动显示/隐藏
-      var searchShown = false;
-      var searchScrollRaf = 0;
-      function updateSearchIsland() {
-        searchScrollRaf = 0;
-        var shouldShow = window.scrollY > 300;
-        if (shouldShow === searchShown) return;
-        searchShown = shouldShow;
-        searchIsland.classList.toggle('is-visible', shouldShow);
-      }
-
-      // 搜索框聚焦/失焦样式
-      searchInput.addEventListener('focus', function () {
-        searchIsland.classList.add('is-focused');
-      });
-      searchInput.addEventListener('blur', function () {
-        searchIsland.classList.remove('is-focused');
-      });
-
-      // 搜索功能 - 跳转到目录并设置过滤
-      var searchForm = document.getElementById('chapter-search-form');
-      searchForm.addEventListener('submit', function (event) {
-        event.preventDefault();
-        var query = searchInput.value.trim();
-        if (query) {
-          // 保存搜索词到 sessionStorage
-          try {
-            sessionStorage.setItem('chapter-search-query', query);
-          } catch (e) {}
-          // 跳转到目录页
-          window.location.href = '/novel/<%= novel.id %>';
-        }
-      });
-
-      searchInput.addEventListener('input', function () {
-        searchCount.textContent = searchInput.value.trim() ? '按回车搜索' : '';
-      });
-
-      searchClear.addEventListener('click', function () {
-        searchInput.value = '';
-        searchCount.textContent = '';
-        searchInput.focus();
-      });
-
       // 返回顶部按钮
+      var backToTopBtn = document.getElementById('back-to-top');
       var backShown = false;
       var backScrollRaf = 0;
       function updateBackButton() {
@@ -417,7 +357,6 @@
       }
 
       function handleScroll() {
-        if (!searchScrollRaf) searchScrollRaf = requestAnimationFrame(updateSearchIsland);
         if (!backScrollRaf) backScrollRaf = requestAnimationFrame(updateBackButton);
       }
 
