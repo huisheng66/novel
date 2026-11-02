@@ -14,6 +14,7 @@
     <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
   <% } %>
   <link rel="stylesheet" href="/css/main.css?v=20261031a">
+  <link rel="stylesheet" href="/css/feedback-modal.css?v=20261102d">
   <script src="/js/site.js?v=20261031a" defer></script>
 </head>
 <body>
@@ -83,6 +84,45 @@
   <button class="back-to-top" id="back-to-top" type="button" aria-label="返回顶部" hidden>
     <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M12 5l-7 7h4v7h6v-7h4z" fill="currentColor"/></svg>
   </button>
+
+  <!-- 反馈模态框 -->
+  <div class="feedback-overlay" id="feedback-overlay"></div>
+  <div class="feedback-modal" id="feedback-modal">
+    <div class="feedback-header">
+      <h2 class="feedback-title">用户反馈</h2>
+      <button class="feedback-close" id="feedback-close" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="feedback-status" id="feedback-status"></div>
+    <form class="feedback-form" id="feedback-form">
+      <div class="feedback-field">
+        <label class="feedback-label" for="feedback-email">
+          邮箱 <span class="optional">(选填，用于接收回复)</span>
+        </label>
+        <input
+          type="email"
+          class="feedback-input"
+          id="feedback-email"
+          placeholder="your@email.com"
+          autocomplete="email"
+        >
+      </div>
+      <div class="feedback-field">
+        <label class="feedback-label" for="feedback-content">
+          反馈内容 <span style="color: #d32f2f;">*</span>
+        </label>
+        <textarea
+          class="feedback-textarea"
+          id="feedback-content"
+          placeholder="请描述您遇到的问题或建议..."
+          required
+        ></textarea>
+      </div>
+      <div class="feedback-actions">
+        <button type="button" class="feedback-btn feedback-btn-cancel" id="feedback-cancel">取消</button>
+        <button type="submit" class="feedback-btn feedback-btn-submit" id="feedback-submit">提交</button>
+      </div>
+    </form>
+  </div>
 
   <script>
     (function () {
@@ -189,6 +229,83 @@
         var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
       });
+    })();
+
+    // 反馈模态框
+    (function () {
+      var feedbackTrigger = document.getElementById('feedback-trigger');
+      var feedbackModal = document.getElementById('feedback-modal');
+      var feedbackOverlay = document.getElementById('feedback-overlay');
+      var feedbackClose = document.getElementById('feedback-close');
+      var feedbackCancel = document.getElementById('feedback-cancel');
+      var feedbackForm = document.getElementById('feedback-form');
+      var feedbackStatus = document.getElementById('feedback-status');
+
+      function openFeedback() {
+        feedbackOverlay.classList.add('active');
+        feedbackModal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeFeedback() {
+        feedbackOverlay.classList.remove('active');
+        feedbackModal.classList.remove('active');
+        document.body.style.overflow = '';
+        feedbackStatus.className = 'feedback-status';
+        feedbackStatus.textContent = '';
+      }
+
+      if (feedbackTrigger) {
+        feedbackTrigger.addEventListener('click', openFeedback);
+      }
+      if (feedbackClose) feedbackClose.addEventListener('click', closeFeedback);
+      if (feedbackCancel) feedbackCancel.addEventListener('click', closeFeedback);
+      if (feedbackOverlay) feedbackOverlay.addEventListener('click', closeFeedback);
+
+      if (feedbackForm) {
+        feedbackForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+
+          var email = document.getElementById('feedback-email').value.trim();
+          var content = document.getElementById('feedback-content').value.trim();
+          var submitBtn = document.getElementById('feedback-submit');
+
+          if (!content) {
+            feedbackStatus.className = 'feedback-status error';
+            feedbackStatus.textContent = '请填写反馈内容';
+            return;
+          }
+
+          submitBtn.disabled = true;
+          submitBtn.textContent = '提交中...';
+          feedbackStatus.className = 'feedback-status';
+          feedbackStatus.textContent = '';
+
+          fetch('/api/feedback', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: email, content: content })
+          })
+          .then(function (res) {
+            if (!res.ok) throw new Error('提交失败');
+            return res.json();
+          })
+          .then(function () {
+            feedbackStatus.className = 'feedback-status success';
+            feedbackStatus.textContent = '提交成功，感谢您的反馈！';
+            feedbackForm.reset();
+            setTimeout(closeFeedback, 2000);
+          })
+          .catch(function (err) {
+            feedbackStatus.className = 'feedback-status error';
+            feedbackStatus.textContent = err.message || '提交失败，请稍后重试';
+          })
+          .finally(function () {
+            submitBtn.disabled = false;
+            submitBtn.textContent = '提交';
+          });
+        });
+      }
     })();
   </script>
 </body>

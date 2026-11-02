@@ -94,7 +94,8 @@ a:hover { opacity: 0.7; }
 }
 .header-auth a,
 .header-actions a,
-.reader-settings-trigger {
+.reader-settings-trigger,
+.feedback-trigger {
   color: var(--muted);
   background: transparent;
   border: none;
@@ -104,12 +105,15 @@ a:hover { opacity: 0.7; }
 }
 .header-auth a:hover,
 .header-actions a:hover,
-.reader-settings-trigger:hover {
+.reader-settings-trigger:hover,
+.feedback-trigger:hover {
   color: var(--accent);
   opacity: 1;
 }
 .reader-settings-trigger:focus,
-.reader-settings-trigger:focus-visible {
+.reader-settings-trigger:focus-visible,
+.feedback-trigger:focus,
+.feedback-trigger:focus-visible {
   outline: none;
   caret-color: transparent;
 }

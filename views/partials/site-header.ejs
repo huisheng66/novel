@@ -12,6 +12,7 @@
       <% if (typeof isReaderPage !== 'undefined' && isReaderPage) { %>
         <button class="header-nav-link reader-settings-trigger" id="reader-settings-trigger" type="button">阅读设置</button>
       <% } %>
+      <button class="header-nav-link feedback-trigger" id="feedback-trigger" type="button">反馈</button>
       <a class="header-nav-link" href="/"<%= currentPage === 'library' ? ' aria-current="page"' : '' %>>书库</a>
       <a class="header-nav-link" href="/wallet" data-account-entry<%= currentPage === 'account' ? ' aria-current="page"' : '' %>>我的</a>
       <% if (typeof serverLoggedIn !== 'undefined') { %>

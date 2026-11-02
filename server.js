@@ -65,6 +65,8 @@ app.get('/metrics', (req, res) => {
 });
 
 app.use('/admin', adminRoutes);
+// 用户反馈 API
+app.use('/api/feedback', require('./routes/api/feedback'));
 // 官方 App 读者 API（Web SSR / Legado 保持独立）
 app.use('/api/v1', require('./routes/api/v1'));
 app.use('/', indexRoutes);

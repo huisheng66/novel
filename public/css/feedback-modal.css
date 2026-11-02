@@ -1,0 +1,195 @@
+/* 反馈模态框样式 */
+.feedback-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+  display: none;
+  animation: fadeIn 0.2s ease;
+}
+
+.feedback-overlay.active {
+  display: block;
+}
+
+.feedback-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+  width: min(90vw, 500px);
+  max-height: 85vh;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
+  padding: 2rem;
+  display: none;
+  overflow-y: auto;
+}
+
+.feedback-modal.active {
+  display: block;
+  animation: slideIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -48%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.feedback-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #25231f;
+  margin: 0;
+}
+
+.feedback-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #68635c;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.feedback-close:hover {
+  background: #f1efea;
+  color: #25231f;
+}
+
+.feedback-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.feedback-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.feedback-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #25231f;
+}
+
+.feedback-label .optional {
+  font-weight: 400;
+  color: #68635c;
+  font-size: 0.85rem;
+}
+
+.feedback-input,
+.feedback-textarea {
+  padding: 0.75rem;
+  border: 1px solid #ddd9d1;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  color: #25231f;
+  background: #ffffff;
+  transition: border-color 0.2s ease;
+}
+
+.feedback-input:focus,
+.feedback-textarea:focus {
+  outline: none;
+  border-color: #96502f;
+}
+
+.feedback-textarea {
+  resize: vertical;
+  min-height: 120px;
+  max-height: 300px;
+}
+
+.feedback-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.feedback-btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.feedback-btn-cancel {
+  background: #f1efea;
+  color: #68635c;
+}
+
+.feedback-btn-cancel:hover {
+  background: #ddd9d1;
+  color: #25231f;
+}
+
+.feedback-btn-submit {
+  background: #96502f;
+  color: #ffffff;
+}
+
+.feedback-btn-submit:hover {
+  background: #7d421f;
+}
+
+.feedback-btn-submit:disabled {
+  background: #c9beb4;
+  cursor: not-allowed;
+}
+
+.feedback-status {
+  padding: 0.75rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  text-align: center;
+  margin-bottom: 1rem;
+  display: none;
+}
+
+.feedback-status.success {
+  display: block;
+  background: #d4edda;
+  color: #155724;
+}
+
+.feedback-status.error {
+  display: block;
+  background: #f8d7da;
+  color: #721c24;
+}
