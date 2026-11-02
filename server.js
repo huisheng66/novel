@@ -15,9 +15,13 @@ const logger = require('./lib/logger');
 const performanceMonitor = require('./lib/performanceMonitor');
 const dbOptimizer = require('./lib/dbOptimizer');
 const cacheWarmer = require('./lib/cacheWarmer');
+const { securityHeaders, hidePoweredBy } = require('./lib/securityHeaders');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// 安全：隐藏 X-Powered-By 头
+hidePoweredBy(app);
 
 // 反向代理信任配置：默认不信任任何转发头（req.ip = socket 对端地址，不可伪造）。
 // 部署在 nginx/CDN 后时设 TRUST_PROXY=true（或数字跳数），Express 才会采用 X-Forwarded-For。
@@ -30,6 +34,9 @@ app.set('view engine', 'ejs');
 if (process.env.NODE_ENV === 'production') {
   app.set('view cache', true);
 }
+
+// 安全响应头（在所有路由之前）
+app.use(securityHeaders);
 
 // 响应压缩（Gzip/Brotli）
 app.use(compression({

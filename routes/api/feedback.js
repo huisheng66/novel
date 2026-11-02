@@ -2,13 +2,44 @@ const express = require('express');
 const router = express.Router();
 const mailer = require('../../lib/mailer');
 const logger = require('../../lib/logger');
+const rateLimitStore = require('../../lib/rateLimitStore');
+
+// 反馈接口限流：每 IP 每 15 分钟最多 5 次
+const FEEDBACK_RATE_LIMIT_MAX = 5;
+const FEEDBACK_RATE_LIMIT_WINDOW_MS = 15 * 60 * 1000;
+
+function getClientIp(req) {
+  const ip = String(req.ip || req.socket?.remoteAddress || 'unknown')
+    .replace(/^::ffff:/, '')
+    .slice(0, 64) || 'unknown';
+  return ip;
+}
+
+async function feedbackRateLimit(req, res, next) {
+  const ip = getClientIp(req);
+  const key = `feedback:${ip}`;
+
+  const result = await rateLimitStore.consume(key, {
+    max: FEEDBACK_RATE_LIMIT_MAX,
+    windowMs: FEEDBACK_RATE_LIMIT_WINDOW_MS
+  });
+
+  if (!result.allowed) {
+    return res.status(429).json({
+      error: '提交过于频繁，请稍后再试',
+      retryAfter: result.retryAfterSec
+    });
+  }
+
+  next();
+}
 
 /**
  * POST /api/feedback
- * 用户反馈接口
+ * 用户反馈接口（带限流）
  * Body: { email?: string, content: string }
  */
-router.post('/', async (req, res) => {
+router.post('/', feedbackRateLimit, async (req, res) => {
   const { email, content } = req.body;
 
   // 验证必填字段
