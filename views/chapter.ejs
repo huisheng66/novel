@@ -142,31 +142,69 @@
   <script>
     (function () {
       var html = document.documentElement;
-      var themeBtn = document.getElementById('theme-toggle');
-      var fontDecBtn = document.getElementById('font-decrease');
-      var fontIncBtn = document.getElementById('font-increase');
-      var fontValue = document.getElementById('reader-font-value');
-      var syncStatus = document.getElementById('reading-sync-status');
+      var syncStatus = null; // 旧设置区域已删除
 
       function storageGet(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
       function storageSet(key, value) { try { localStorage.setItem(key, value); } catch (e) {} }
-      function currentTheme() {
-        return html.getAttribute('data-reader-theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      }
-      function updateThemeLabel() {
-        var dark = currentTheme() === 'dark';
-        themeBtn.textContent = dark ? '浅色模式' : '深色模式';
-        themeBtn.setAttribute('aria-pressed', String(dark));
-      }
-      themeBtn.addEventListener('click', function () {
-        var next = currentTheme() === 'dark' ? 'light' : 'dark';
-        html.setAttribute('data-reader-theme', next);
-        storageSet('reader-theme', next);
-        updateThemeLabel();
-      });
 
+      // 阅读设置模态框
+      var settingsTrigger = document.getElementById('reader-settings-trigger');
+      var settingsModal = document.getElementById('reader-settings-modal');
+      var settingsOverlay = document.getElementById('reader-settings-overlay');
+      var settingsClose = document.getElementById('reader-settings-close');
+
+      function openSettings() {
+        settingsOverlay.classList.add('is-visible');
+        settingsModal.classList.add('is-open');
+        document.body.style.overflow = 'hidden';
+      }
+
+      function closeSettings() {
+        settingsOverlay.classList.remove('is-visible');
+        settingsModal.classList.remove('is-open');
+        document.body.style.overflow = '';
+      }
+
+      if (settingsTrigger) {
+        settingsTrigger.addEventListener('click', openSettings);
+      }
+      if (settingsClose) {
+        settingsClose.addEventListener('click', closeSettings);
+      }
+      if (settingsOverlay) {
+        settingsOverlay.addEventListener('click', closeSettings);
+      }
+      // 字体设置
+      var fontBtns = document.querySelectorAll('#font-family-options .reader-setting-btn');
+      var currentFont = storageGet('reader-font-family') || 'serif';
+      fontBtns.forEach(function (btn) {
+        if (btn.getAttribute('data-font') === currentFont) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var font = this.getAttribute('data-font');
+          fontBtns.forEach(function (b) { b.classList.remove('is-active'); });
+          this.classList.add('is-active');
+          if (font === 'serif') {
+            html.style.fontFamily = '"Noto Serif SC", "Source Han Serif SC", Georgia, "Songti SC", serif';
+          } else if (font === 'sans') {
+            html.style.fontFamily = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+          } else if (font === 'kai') {
+            html.style.fontFamily = '"KaiTi", "Kaiti SC", STKaiti, "STKaiti", serif';
+          }
+          storageSet('reader-font-family', font);
+        });
+      });
+      // 应用已保存字体
+      if (currentFont === 'sans') {
+        html.style.fontFamily = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
+      } else if (currentFont === 'kai') {
+        html.style.fontFamily = '"KaiTi", "Kaiti SC", STKaiti, "STKaiti", serif';
+      }
+
+      // 字号设置
       var fontSizes = ['0.95rem', '1.0625rem', '1.2rem', '1.35rem'];
-      var fontLabels = ['较小', '标准', '较大', '最大'];
+      var sizeBtns = document.querySelectorAll('#font-size-options .reader-setting-btn');
       function getFontIndex() {
         var index = fontSizes.indexOf(storageGet('reader-font-size'));
         return index >= 0 ? index : 1;
@@ -174,14 +212,63 @@
       function applyFont(index) {
         html.style.setProperty('--reader-font-size', fontSizes[index]);
         storageSet('reader-font-size', fontSizes[index]);
-        fontValue.textContent = fontLabels[index];
-        fontDecBtn.disabled = index === 0;
-        fontIncBtn.disabled = index === fontSizes.length - 1;
       }
-      fontDecBtn.addEventListener('click', function () { applyFont(Math.max(0, getFontIndex() - 1)); });
-      fontIncBtn.addEventListener('click', function () { applyFont(Math.min(fontSizes.length - 1, getFontIndex() + 1)); });
-      updateThemeLabel();
-      applyFont(getFontIndex());
+      var currentSizeIndex = getFontIndex();
+      sizeBtns.forEach(function (btn, index) {
+        if (index === currentSizeIndex) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var size = this.getAttribute('data-size');
+          var index = fontSizes.indexOf(size);
+          if (index >= 0) {
+            applyFont(index);
+            sizeBtns.forEach(function (b) { b.classList.remove('is-active'); });
+            this.classList.add('is-active');
+          }
+        });
+      });
+      applyFont(currentSizeIndex);
+
+      // 背景色设置
+      var bgBtns = document.querySelectorAll('#bg-color-options .reader-setting-btn');
+      var currentBg = storageGet('reader-bg-color') || 'default';
+      bgBtns.forEach(function (btn) {
+        if (btn.getAttribute('data-bg') === currentBg) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var bg = this.getAttribute('data-bg');
+          bgBtns.forEach(function (b) { b.classList.remove('is-active'); });
+          this.classList.add('is-active');
+          html.setAttribute('data-reader-bg', bg);
+          storageSet('reader-bg-color', bg);
+        });
+      });
+      // 应用已保存背景色
+      if (currentBg) {
+        html.setAttribute('data-reader-bg', currentBg);
+      }
+
+      // 行距设置
+      var lhBtns = document.querySelectorAll('#line-height-options .reader-setting-btn');
+      var currentLh = storageGet('reader-line-height') || '1.7';
+      lhBtns.forEach(function (btn) {
+        if (btn.getAttribute('data-lh') === currentLh) {
+          btn.classList.add('is-active');
+        }
+        btn.addEventListener('click', function () {
+          var lh = this.getAttribute('data-lh');
+          lhBtns.forEach(function (b) { b.classList.remove('is-active'); });
+          this.classList.add('is-active');
+          html.style.lineHeight = lh;
+          storageSet('reader-line-height', lh);
+        });
+      });
+      // 应用已保存行距
+      if (currentLh) {
+        html.style.lineHeight = currentLh;
+      }
 
       var novelId = <%= novel.id %>;
       var chapterNumber = <%= chapter.chapter_number %>;
@@ -189,11 +276,6 @@
       var progressMetaKey = 'reading-progress-meta:' + novelId;
       var apiTokenKey = 'codexnovel_access_token';
       function getApiToken() { return storageGet(apiTokenKey) || ''; }
-      function setSyncStatus(text, state) {
-        syncStatus.textContent = text;
-        syncStatus.setAttribute('data-state', state || 'local');
-      }
-      if (getApiToken()) setSyncStatus('阅读进度将同步到账号', 'sync');
 
       function currentOffsetRatio() {
         // 使用 visualViewport API 避免移动端键盘影响
@@ -222,9 +304,7 @@
           headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'Accept': 'application/json' },
           body: JSON.stringify({ novelId: novelId, chapterNumber: chapterNumber, offsetRatio: ratio, updatedAt: new Date().toISOString(), deviceName: 'web' }),
           credentials: 'same-origin'
-        }).then(function (response) {
-          setSyncStatus(response.ok ? '阅读进度已同步' : '同步失败，进度仍保存在本机', response.ok ? 'synced' : 'error');
-        }).catch(function () { setSyncStatus('当前离线，进度已保存在本机', 'error'); });
+        }).catch(function () {});
       }
 
       applyOffsetRatio(parseFloat(storageGet(progressKey)));
