@@ -8,7 +8,7 @@
   z-index: 1000;
   width: min(85vw, 520px);
   aspect-ratio: 4 / 3;
-  background: var(--surface, #ffffff);
+  background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
   padding: 1.75rem;
@@ -43,13 +43,13 @@
   align-items: center;
   justify-content: space-between;
   padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border, #ddd9d1);
+  border-bottom: 1px solid #ddd9d1;
 }
 
 .reader-settings-title {
   font-size: 1.1rem;
   font-weight: 600;
-  color: var(--text, #25231f);
+  color: #25231f;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -61,7 +61,7 @@
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--muted, #68635c);
+  color: #68635c;
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
@@ -70,7 +70,7 @@
 }
 
 .reader-settings-close:hover {
-  background: var(--surface-soft, #f1efea);
+  background: #f1efea;
 }
 
 .reader-settings-body {
@@ -90,7 +90,7 @@
 .reader-setting-label {
   font-size: 0.9rem;
   font-weight: 500;
-  color: var(--text, #25231f);
+  color: #25231f;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
@@ -102,10 +102,10 @@
 
 .reader-setting-btn {
   padding: 0.5rem 1rem;
-  border: 1px solid var(--border, #ddd9d1);
+  border: 1px solid #ddd9d1;
   border-radius: 8px;
-  background: var(--surface, #ffffff);
-  color: var(--text, #25231f);
+  background: #ffffff;
+  color: #25231f;
   font-size: 0.9rem;
   font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
   cursor: pointer;
@@ -114,13 +114,13 @@
 }
 
 .reader-setting-btn:hover {
-  border-color: var(--accent, #96502f);
-  color: var(--accent, #96502f);
+  border-color: #96502f;
+  color: #96502f;
 }
 
 .reader-setting-btn.is-active {
-  background: var(--accent, #96502f);
-  border-color: var(--accent, #96502f);
+  background: #96502f;
+  border-color: #96502f;
   color: #ffffff;
 }
 
@@ -148,7 +148,7 @@
 }
 
 .bg-color-option.is-active::after {
-  border-color: var(--accent, #96502f);
+  border-color: #96502f;
 }
 
 .bg-color-option[data-bg="default"] {
@@ -187,13 +187,4 @@
 .reader-settings-trigger:focus-visible {
   outline: none;
   caret-color: transparent;
-}
-
-/* 暗色模式适配 */
-[data-reader-theme="dark"] .reader-settings-modal {
-  --surface: #1a1a1a;
-  --surface-soft: #252525;
-  --text: #e0e0e0;
-  --muted: #a0a0a0;
-  --border: #333333;
 }
