@@ -6,8 +6,8 @@
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 1000;
-  width: min(85vw, 520px);
-  aspect-ratio: 4 / 3;
+  width: min(90vw, 600px);
+  max-height: 85vh;
   background: #ffffff;
   border-radius: 16px;
   box-shadow: 0 12px 48px rgba(0, 0, 0, 0.2);
@@ -124,9 +124,57 @@
   color: #ffffff;
 }
 
-/* 字号选项 */
-.font-size-option {
+/* 字号选项 - 改为滑块 */
+.font-size-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.font-size-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #ddd9d1;
+  border-radius: 3px;
+  outline: none;
+}
+
+.font-size-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #96502f;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.font-size-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.font-size-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #96502f;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.font-size-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+.font-size-label {
   min-width: 3.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #68635c;
 }
 
 /* 背景色选项 - 色块 */
@@ -171,9 +219,57 @@
   color: #e0e0e0;
 }
 
-/* 行距选项 */
-.line-height-option {
-  min-width: 4rem;
+/* 行距选项 - 改为滑块 */
+.line-height-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.line-height-slider {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: #ddd9d1;
+  border-radius: 3px;
+  outline: none;
+}
+
+.line-height-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  background: #96502f;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.line-height-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.line-height-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  background: #96502f;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.line-height-slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+}
+
+.line-height-label {
+  min-width: 3.5rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: #68635c;
 }
 
 /* 去除焦点效果 */

@@ -13,8 +13,8 @@
   <% if (novel.cover_image) { %>
     <meta property="og:image" content="<%= novel.cover_image.startsWith('http') ? novel.cover_image : baseUrl + novel.cover_image %>">
   <% } %>
-  <link rel="stylesheet" href="/css/main.css?v=20261102b">
-  <link rel="stylesheet" href="/css/reader-settings-modal.css?v=20261102b">
+  <link rel="stylesheet" href="/css/main.css?v=20261102c">
+  <link rel="stylesheet" href="/css/reader-settings-modal.css?v=20261102c">
   <script src="/js/site.js?v=20261031a" defer></script>
   <script>
     (function () {
@@ -110,11 +110,9 @@
 
       <div class="reader-setting-group">
         <div class="reader-setting-label">字号</div>
-        <div class="reader-setting-options" id="font-size-options">
-          <button class="reader-setting-btn font-size-option" data-size="0.95rem" type="button">较小</button>
-          <button class="reader-setting-btn font-size-option" data-size="1.0625rem" type="button">标准</button>
-          <button class="reader-setting-btn font-size-option" data-size="1.2rem" type="button">较大</button>
-          <button class="reader-setting-btn font-size-option" data-size="1.35rem" type="button">最大</button>
+        <div class="font-size-control">
+          <span class="font-size-label" id="font-size-label">标准</span>
+          <input type="range" class="font-size-slider" id="font-size-slider" min="14" max="22" step="1" value="17">
         </div>
       </div>
 
@@ -130,10 +128,9 @@
 
       <div class="reader-setting-group">
         <div class="reader-setting-label">行距</div>
-        <div class="reader-setting-options" id="line-height-options">
-          <button class="reader-setting-btn line-height-option" data-lh="1.5" type="button">紧凑</button>
-          <button class="reader-setting-btn line-height-option" data-lh="1.7" type="button">标准</button>
-          <button class="reader-setting-btn line-height-option" data-lh="2.0" type="button">宽松</button>
+        <div class="line-height-control">
+          <span class="line-height-label" id="line-height-label">标准</span>
+          <input type="range" class="line-height-slider" id="line-height-slider" min="1.3" max="2.2" step="0.1" value="1.7">
         </div>
       </div>
     </div>
@@ -202,33 +199,21 @@
         html.style.fontFamily = '"KaiTi", "Kaiti SC", STKaiti, "STKaiti", serif';
       }
 
-      // 字号设置
-      var fontSizes = ['0.95rem', '1.0625rem', '1.2rem', '1.35rem'];
-      var sizeBtns = document.querySelectorAll('#font-size-options .reader-setting-btn');
-      function getFontIndex() {
-        var index = fontSizes.indexOf(storageGet('reader-font-size'));
-        return index >= 0 ? index : 1;
+      // 字号设置 - 滑块
+      var fontSizeSlider = document.getElementById('font-size-slider');
+      var fontSizeLabel = document.getElementById('font-size-label');
+      var savedFontSize = storageGet('reader-font-size-px');
+      if (savedFontSize) {
+        fontSizeSlider.value = savedFontSize;
+        html.style.fontSize = savedFontSize + 'px';
+        fontSizeLabel.textContent = savedFontSize + 'px';
       }
-      function applyFont(index) {
-        html.style.setProperty('--reader-font-size', fontSizes[index]);
-        storageSet('reader-font-size', fontSizes[index]);
-      }
-      var currentSizeIndex = getFontIndex();
-      sizeBtns.forEach(function (btn, index) {
-        if (index === currentSizeIndex) {
-          btn.classList.add('is-active');
-        }
-        btn.addEventListener('click', function () {
-          var size = this.getAttribute('data-size');
-          var index = fontSizes.indexOf(size);
-          if (index >= 0) {
-            applyFont(index);
-            sizeBtns.forEach(function (b) { b.classList.remove('is-active'); });
-            this.classList.add('is-active');
-          }
-        });
+      fontSizeSlider.addEventListener('input', function () {
+        var size = this.value;
+        html.style.fontSize = size + 'px';
+        fontSizeLabel.textContent = size + 'px';
+        storageSet('reader-font-size-px', size);
       });
-      applyFont(currentSizeIndex);
 
       // 背景色设置
       var bgBtns = document.querySelectorAll('#bg-color-options .reader-setting-btn');
@@ -250,25 +235,21 @@
         html.setAttribute('data-reader-bg', currentBg);
       }
 
-      // 行距设置
-      var lhBtns = document.querySelectorAll('#line-height-options .reader-setting-btn');
-      var currentLh = storageGet('reader-line-height') || '1.7';
-      lhBtns.forEach(function (btn) {
-        if (btn.getAttribute('data-lh') === currentLh) {
-          btn.classList.add('is-active');
-        }
-        btn.addEventListener('click', function () {
-          var lh = this.getAttribute('data-lh');
-          lhBtns.forEach(function (b) { b.classList.remove('is-active'); });
-          this.classList.add('is-active');
-          html.style.lineHeight = lh;
-          storageSet('reader-line-height', lh);
-        });
-      });
-      // 应用已保存行距
-      if (currentLh) {
-        html.style.lineHeight = currentLh;
+      // 行距设置 - 滑块
+      var lineHeightSlider = document.getElementById('line-height-slider');
+      var lineHeightLabel = document.getElementById('line-height-label');
+      var savedLineHeight = storageGet('reader-line-height');
+      if (savedLineHeight) {
+        lineHeightSlider.value = savedLineHeight;
+        html.style.lineHeight = savedLineHeight;
+        lineHeightLabel.textContent = savedLineHeight;
       }
+      lineHeightSlider.addEventListener('input', function () {
+        var lh = this.value;
+        html.style.lineHeight = lh;
+        lineHeightLabel.textContent = lh;
+        storageSet('reader-line-height', lh);
+      });
 
       var novelId = <%= novel.id %>;
       var chapterNumber = <%= chapter.chapter_number %>;
